@@ -277,10 +277,10 @@ namespace Redadeg.lmuDataPlugin
 
         public static int maxAvailableTires { get; set; }
         public static int newTires { get; set; }
-        public static string fl_TyreChange { get; set; }
-        public static string fr_TyreChange { get; set; }
-        public static string rl_TyreChange { get; set; }
-        public static string rr_TyreChange { get; set; }
+        //public static string fl_TyreChange { get; set; }
+        //public static string fr_TyreChange { get; set; }
+        //public static string rl_TyreChange { get; set; }
+        //public static string rr_TyreChange { get; set; }
 
         public static string fl_TyrePressure { get; set; }
         public static string fr_TyrePressure { get; set; }
@@ -305,6 +305,72 @@ namespace Redadeg.lmuDataPlugin
         public static string VM_TRACTIONCONTROLSLIPANGLEMAP { get; set; }
         public static string VM_REAR_ANTISWAY { get; set; }
         public static string VM_FRONT_ANTISWAY { get; set; }
+
+        public static string fl_TyreChange_Name { get; set; }
+        public static string fr_TyreChange_Name { get; set; }
+        public static string rl_TyreChange_Name { get; set; }
+        public static string rr_TyreChange_Name { get; set; }
+        public static string fl_TyrePressure_Bar { get; set; }
+        public static string fr_TyrePressure_Bar { get; set; }
+        public static string rl_TyrePressure_Bar { get; set; }
+        public static string rr_TyrePressure_Bar { get; set; }
+        public static string fl_TyrePressure_Psi { get; set; }
+        public static string fr_TyrePressure_Psi { get; set; }
+        public static string rl_TyrePressure_Psi { get; set; }
+        public static string rr_TyrePressure_Psi { get; set; }
+        //public static string fl_TyreCompound { get; set; }
+        //public static string fr_TyreCompound { get; set; }
+        //public static string rl_TyreCompound { get; set; }
+        //public static string rr_TyreCompound { get; set; }
+        public static string fl_TyreCompound_Name { get; set; }
+        public static string fr_TyreCompound_Name { get; set; }
+        public static string rl_TyreCompound_Name { get; set; }
+        public static string rr_TyreCompound_Name { get; set; }
+        public static string fl_TyreTemp { get; set; }
+        public static string fr_TyreTemp { get; set; }
+        public static string rl_TyreTemp { get; set; }
+        public static string rr_TyreTemp { get; set; }
+        public static string fl_BrakeTemp { get; set; }
+        public static string fr_BrakeTemp { get; set; }
+        public static string rl_BrakeTemp { get; set; }
+        public static string rr_BrakeTemp { get; set; }
+        public static string grandPrixName { get; set; }
+        public static string location { get; set; }
+        public static string openingYear { get; set; }
+        public static string trackLength { get; set; }
+        public static string trackName { get; set; }
+        public static string teamName { get; set; }
+        public static string vehicleName { get; set; }
+        public static string raceFinished { get; set; }
+        public static string isReplayActive { get; set; }
+        public static string PitState { get; set; }
+        public static object PitEntryDist { get; set; }
+        public static string MultiStintState { get; set; }
+        public static string RainChance_Probability { get; set; }
+        public static string Sky_Probability { get; set; }
+        public static string Temperature_Probability { get; set; }
+        public static int FL_TIRE { get; set; }
+        public static int FR_TIRE { get; set; }
+        public static int RL_TIRE { get; set; }
+        public static int RR_TIRE { get; set; }
+        public static float fuelConsumption { get; set; }
+        public static double fuelFractionPerLap { get; set; }
+        public static double virtualEnergyFractionPerLap { get; set; }
+        public static string trackTemp { get; set; }
+        public static string trackWetness { get; set; }
+        public static string fl_Tyre_NewPressure_kPa { get; set; }
+        public static string fr_Tyre_NewPressure_kPa { get; set; }
+        public static string rl_Tyre_NewPressure_kPa { get; set; }
+        public static string rr_Tyre_NewPressure_kPa { get; set; }
+        public static string fl_Tyre_NewPressure_Bar { get; set; }
+        public static string fr_Tyre_NewPressure_Bar { get; set; }
+        public static string rl_Tyre_NewPressure_Bar { get; set; }
+        public static string rr_Tyre_NewPressure_Bar { get; set; }
+        public static string fl_Tyre_NewPressure_Psi { get; set; }
+        public static string fr_Tyre_NewPressure_Psi { get; set; }
+        public static string rl_Tyre_NewPressure_Psi { get; set; }
+        public static string rr_Tyre_NewPressure_Psi { get; set; }
+        public static int PitMVirtualEnergy { get; set; }
     }
 
 
