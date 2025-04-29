@@ -370,7 +370,7 @@ namespace Redadeg.lmuDataPlugin
         public static string fr_Tyre_NewPressure_Psi { get; set; }
         public static string rl_Tyre_NewPressure_Psi { get; set; }
         public static string rr_Tyre_NewPressure_Psi { get; set; }
-        public static int PitMVirtualEnergy { get; set; }
+        public static string PitMVirtualEnergy { get; set; }
         public static string rr_Tyre_NewPressure_kPa_Text { get; set; }
         public static string rl_Tyre_NewPressure_kPa_Text { get; set; }
         public static string fr_Tyre_NewPressure_kPa_Text { get; set; }
