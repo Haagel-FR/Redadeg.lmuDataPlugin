@@ -177,292 +177,292 @@ namespace Redadeg.lmuDataPlugin
         //        }
 
 
-        // Start HTTP TimeOut Handle
-        public async Task<JObject> GetTireManagementDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // Définir un timeout de 5 secondes
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //// Start HTTP TimeOut Handle
+        //public async Task<JObject> GetTireManagementDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // Définir un timeout de 5 secondes
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/TireManagement");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/TireManagement");
 
-                    // JObject Conversion
-                    return JObject.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JObject.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
+        //    // Return null if fail
+        //    return null;
+        //}
 
-        public async Task<JObject> GetGetGameStateDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // 5 seconds timeout
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //public async Task<JObject> GetGetGameStateDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // 5 seconds timeout
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/sessions/GetGameState");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/sessions/GetGameState");
 
-                    // JObject Conversion
-                    return JObject.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JObject.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
+        //    // Return null if fail
+        //    return null;
+        //}
 
-        public async Task<JObject> GetRaceHistoryDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // 5 seconds timeout
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //public async Task<JObject> GetRaceHistoryDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // 5 seconds timeout
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/RaceHistory");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/RaceHistory");
 
-                    // JObject Conversion
-                    return JObject.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JObject.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
-        public async Task<JObject> GetRepairAndRefuelDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // 5 seconds timeout
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //    // Return null if fail
+        //    return null;
+        //}
+        //public async Task<JObject> GetRepairAndRefuelDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // 5 seconds timeout
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel");
 
-                    // JObject Conversion
-                    return JObject.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JObject.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
-        public async Task<JObject> GetCarSetupOverviewDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // 5 seconds timeout
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //    // Return null if fail
+        //    return null;
+        //}
+        //public async Task<JObject> GetCarSetupOverviewDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // 5 seconds timeout
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/CarSetupOverview");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/UIScreen/CarSetupOverview");
 
-                    // JObject Conversion
-                    return JObject.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JObject.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
+        //    // Return null if fail
+        //    return null;
+        //}
 
-        public async Task<JObject> GetGetSessionsInfoForEventDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // 5 seconds timeout
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //public async Task<JObject> GetGetSessionsInfoForEventDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // 5 seconds timeout
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/sessions/GetSessionsInfoForEvent");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/sessions/GetSessionsInfoForEvent");
 
-                    // JObject Conversion
-                    return JObject.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JObject.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
-        public async Task<JArray> GetreceivePitMenuDataAsync()
-        {
-            using (HttpClient httpClient = new HttpClient())
-            {
-                // 5 seconds timeout
-                httpClient.Timeout = TimeSpan.FromSeconds(5);
+        //    // Return null if fail
+        //    return null;
+        //}
+        //public async Task<JArray> GetreceivePitMenuDataAsync()
+        //{
+        //    using (HttpClient httpClient = new HttpClient())
+        //    {
+        //        // 5 seconds timeout
+        //        httpClient.Timeout = TimeSpan.FromSeconds(5);
 
-                try
-                {
-                    // GET request
-                    string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/PitMenu/receivePitMenu");
+        //        try
+        //        {
+        //            // GET request
+        //            string response = await httpClient.GetStringAsync("http://localhost:6397/rest/garage/PitMenu/receivePitMenu");
 
-                    // JObject Conversion
-                    return JArray.Parse(response);
-                }
-                catch (TaskCanceledException)
-                {
-                    // Timeout or Cancel
-                    Logging.Current.Error("The request has expired or been canceled.");
-                }
-                catch (HttpRequestException ex)
-                {
-                    // Network Error
-                    Logging.Current.Error($"Network error : {ex.Message}");
-                }
-                catch (JsonException ex)
-                {
-                    // JSON parsing error
-                    Logging.Current.Error($"JSON parsing error : {ex.Message}");
-                }
-                catch (Exception ex)
-                {
-                    // Other errors
-                    Logging.Current.Error($"Unexpected error : {ex.Message}");
-                }
-            }
+        //            // JObject Conversion
+        //            return JArray.Parse(response);
+        //        }
+        //        catch (TaskCanceledException)
+        //        {
+        //            // Timeout or Cancel
+        //            Logging.Current.Error("The request has expired or been canceled.");
+        //        }
+        //        catch (HttpRequestException ex)
+        //        {
+        //            // Network Error
+        //            Logging.Current.Error($"Network error : {ex.Message}");
+        //        }
+        //        catch (JsonException ex)
+        //        {
+        //            // JSON parsing error
+        //            Logging.Current.Error($"JSON parsing error : {ex.Message}");
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            // Other errors
+        //            Logging.Current.Error($"Unexpected error : {ex.Message}");
+        //        }
+        //    }
 
-            // Return null if fail
-            return null;
-        }
+        //    // Return null if fail
+        //    return null;
+        //}
 
-        // End HTTP TimeOut Handle
+        //// End HTTP TimeOut Handle
 
         public void DataUpdate(PluginManager pluginManager, ref GameData data)
         {
@@ -480,10 +480,11 @@ namespace Redadeg.lmuDataPlugin
                 {
                     if (updateDataDelayCounter < 0)
                     {
-                        //wc = new WebClient();
+                        wc = new WebClient();
                         try
                         {
-                            JObject SetupJSONdata = GetCarSetupOverviewDataAsync().GetAwaiter().GetResult();
+                            //JObject SetupJSONdata = GetCarSetupOverviewDataAsync().GetAwaiter().GetResult();
+                            JObject SetupJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/CarSetupOverview"));
                             if (SetupJSONdata != null)
                             {
                                 JObject carSetup = JObject.Parse(SetupJSONdata["carSetup"].ToString());
@@ -583,10 +584,15 @@ namespace Redadeg.lmuDataPlugin
                     }
                     try
                     {
-                        JSONdata = GetRepairAndRefuelDataAsync().GetAwaiter().GetResult();
-                        JObject TireMagagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
-                        JObject GameStateJSONdata = GetGetGameStateDataAsync().GetAwaiter().GetResult();
-                        JObject InfoForEventJSONdata = GetGetSessionsInfoForEventDataAsync().GetAwaiter().GetResult();
+                        //JSONdata = GetRepairAndRefuelDataAsync().GetAwaiter().GetResult();
+                        //JObject TireMagagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
+                        //JObject GameStateJSONdata = GetGetGameStateDataAsync().GetAwaiter().GetResult();
+                        //JObject InfoForEventJSONdata = GetGetSessionsInfoForEventDataAsync().GetAwaiter().GetResult();
+
+                        JSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel"));
+                        JObject TireMagagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
+                        JObject GameStateJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetGameState"));
+                        JObject InfoForEventJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetSessionsInfoForEvent"));
 
                         if (JSONdata != null || TireMagagementJSONdata != null || GameStateJSONdata != null || InfoForEventJSONdata != null)
 
@@ -708,7 +714,8 @@ namespace Redadeg.lmuDataPlugin
                             try
                             {
 
-                                JObject TireManagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
+                                //JObject TireManagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
+                                JObject TireManagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
 
                                 if (TireManagementJSONdata != null)
                                 {
@@ -794,11 +801,17 @@ namespace Redadeg.lmuDataPlugin
                     {
                         try
                         {
-                            JObject TireManagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
-                            JObject GameStateJSONdata = GetGetGameStateDataAsync().GetAwaiter().GetResult();
-                            JObject RaceHistoryJSONdata = GetRaceHistoryDataAsync().GetAwaiter().GetResult();
-                            JObject RepairAndRefuelJSONData = GetRepairAndRefuelDataAsync().GetAwaiter().GetResult();
-                            JArray pitMenuJSONData = GetreceivePitMenuDataAsync().GetAwaiter().GetResult();
+                            //JObject TireManagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
+                            //JObject GameStateJSONdata = GetGetGameStateDataAsync().GetAwaiter().GetResult();
+                            //JObject RaceHistoryJSONdata = GetRaceHistoryDataAsync().GetAwaiter().GetResult();
+                            //JObject RepairAndRefuelJSONData = GetRepairAndRefuelDataAsync().GetAwaiter().GetResult();
+                            //JArray pitMenuJSONData = GetreceivePitMenuDataAsync().GetAwaiter().GetResult();
+
+                            JObject TireManagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
+                            JObject GameStateJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetGameState"));
+                            JObject RaceHistoryJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RaceHistory"));
+                            JObject RepairAndRefuelJSONData = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel"));
+                            JArray pitMenuJSONData = JArray.Parse(wc.DownloadString("http://localhost:6397/rest/garage/PitMenu/receivePitMenu"));
 
                             if (TireManagementJSONdata != null || GameStateJSONdata != null || RaceHistoryJSONdata != null || RepairAndRefuelJSONData != null || pitMenuJSONData != null)
                             {
