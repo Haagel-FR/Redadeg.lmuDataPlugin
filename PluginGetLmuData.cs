@@ -8,11 +8,14 @@ using System.IO;    // Need for read/write JSON settings file
 using SimHub;
 //using SimHub.Plugins.InputPlugins;
 using System.Net;
+using System.Net.Http;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
+using System.Timers;
+using System.Windows.Controls;
+using System.Linq.Expressions;
 
 
 namespace Redadeg.lmuDataPlugin
@@ -268,7 +271,7 @@ namespace Redadeg.lmuDataPlugin
 
                             foreach (JObject Sessions in scheduledSessions["scheduledSessions"])
                             {
-                                if (Sessions["name"].ToString().ToUpper().Equals(data.NewData.SessionTypeName.ToUpper())) LMURepairAndRefuelData.rainChance = Sessions["rainChance"] != null ? (int)Sessions["rainChance"] : 0;
+                                if (Sessions["name"].ToString().ToUpper().Equals(data.NewData.SessionTypeName.ToUpper())) LMURepairAndRefuelData.rainChance = $"{((double)Sessions["rainChance"]):F2} %";
                             }
 
                             LMURepairAndRefuelData.maxVirtualEnergy = fuelInfo["maxVirtualEnergy"] != null ? (int)fuelInfo["maxVirtualEnergy"] : 0;
@@ -349,8 +352,6 @@ namespace Redadeg.lmuDataPlugin
                             updateConsuptionFlag = false;
                             try
                             {
-
-                                //JObject TireManagementJSONdata = GetTireManagementDataAsync().GetAwaiter().GetResult();
                                 JObject TireManagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
 
                                 {
@@ -438,20 +439,6 @@ namespace Redadeg.lmuDataPlugin
                             JArray pitMenuJSONData = JArray.Parse(wc.DownloadString("http://localhost:6397/rest/garage/PitMenu/receivePitMenu"));
 
                             {
-                                // Start Fuel & Energy
-                                {
-                                    JObject expectedUsage = JObject.Parse(TireManagementJSONdata["expectedUsage"].ToString());
-
-                                    float fuelConsumption = expectedUsage["fuelConsumption"] != null ? (float)expectedUsage["fuelConsumption"] : 0;
-                                    double fuelFractionPerLap = expectedUsage["fuelFractionPerLap"] != null ? (double)expectedUsage["fuelFractionPerLap"] : 0;
-                                    double virtualEnergyFractionPerLap = expectedUsage["virtualEnergyFractionPerLap"] != null ? (double)expectedUsage["virtualEnergyFractionPerLap"] : 0;
-
-                                    LMURepairAndRefuelData.fuelConsumption = (float)Math.Round(fuelConsumption, 2);
-                                    LMURepairAndRefuelData.fuelFractionPerLap = (double)Math.Round((fuelFractionPerLap * 100), 4);
-                                    LMURepairAndRefuelData.virtualEnergyFractionPerLap = (double)Math.Round((virtualEnergyFractionPerLap * 100), 4);
-                                }
-                                // End Fuel & Energy
-
                                 // Start New Repair Damage
                                 {                                  
                                     var RepairDamageText = GetPMCText(pitMenuJSONData, 1, "Unknown");
@@ -551,24 +538,24 @@ namespace Redadeg.lmuDataPlugin
 
                                         // Start New Tyre Change
                                         {
-                                            var fl_tirechange = GetPMCValue(pitMenuJSONData, 12, "Unknown"); // Front Left Tyre
-                                            var fr_tirechange = GetPMCValue(pitMenuJSONData, 13, "Unknown"); // Front Right Tyre
-                                            var rl_tirechange = GetPMCValue(pitMenuJSONData, 14, "Unknown"); // Rear Left Tyre
-                                            var rr_tirechange = GetPMCValue(pitMenuJSONData, 15, "Unknown"); // Rear Right Tyre
-                                        
+                                            var fl_tirechange = GetPMCValue(pitMenuJSONData, 12, "Unknown");
+                                            var fr_tirechange = GetPMCValue(pitMenuJSONData, 13, "Unknown");
+                                            var rl_tirechange = GetPMCValue(pitMenuJSONData, 14, "Unknown");
+                                            var rr_tirechange = GetPMCValue(pitMenuJSONData, 15, "Unknown");
+
                                             if (LMURepairAndRefuelData.trackName == "Circuit de la Sarthe" || LMURepairAndRefuelData.trackName == "Circuit de Spa-Francorchamps")
                                             {
                                                 LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange != null ? (string)fl_tirechange == "0" ? "No Change" : (string)fl_tirechange == "1" ? "New Soft" : (string)fl_tirechange == "2" ? "New Medium" : (string)fl_tirechange == "3" ? "New Hard" : (string)fl_tirechange == "4" ? "New Wet" : (string)fl_tirechange == "5" ? "Use Soft" : (string)fl_tirechange == "6" ? "Use Medium" : (string)fl_tirechange == "7" ? "Use Hard" : (string)fl_tirechange == "8" ? "Use Wet" : $"{(string)fl_tirechange}" : "Unknown";
                                                 LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange != null ? (string)fr_tirechange == "0" ? "No Change" : (string)fr_tirechange == "1" ? "New Soft" : (string)fr_tirechange == "2" ? "New Medium" : (string)fr_tirechange == "3" ? "New Hard" : (string)fr_tirechange == "4" ? "New Wet" : (string)fr_tirechange == "5" ? "Use Soft" : (string)fr_tirechange == "6" ? "Use Medium" : (string)fr_tirechange == "7" ? "Use Hard" : (string)fr_tirechange == "8" ? "Use Wet" : $"{(string)fr_tirechange}" : "Unknown";
                                                 LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange != null ? (string)rl_tirechange == "0" ? "No Change" : (string)rl_tirechange == "1" ? "New Soft" : (string)rl_tirechange == "2" ? "New Medium" : (string)rl_tirechange == "3" ? "New Hard" : (string)rl_tirechange == "4" ? "New Wet" : (string)rl_tirechange == "5" ? "Use Soft" : (string)rl_tirechange == "6" ? "Use Medium" : (string)rl_tirechange == "7" ? "Use Hard" : (string)rl_tirechange == "8" ? "Use Wet" : $"{(string)rl_tirechange}" : "Unknown";
-                                                LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange != null ? (string)rr_tirechange == "0" ? "No Change" : (string)rr_tirechange == "1" ? "New Soft" : (string)rr_tirechange == "2" ? "New Medium" : (string)rr_tirechange == "3" ? "New Hard" : (string)rr_tirechange == "4" ? "New Wet" : (string)rr_tirechange == "5" ? "Use Soft" : (string)rr_tirechange == "6" ? "Use Medium" : (string)rr_tirechange == "7" ? "Use Hard" : (string)rr_tirechange == "8" ? "Use Wet" : $"{(string)rr_tirechange}" : "Unknown";                                                                                            
+                                                LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange != null ? (string)rr_tirechange == "0" ? "No Change" : (string)rr_tirechange == "1" ? "New Soft" : (string)rr_tirechange == "2" ? "New Medium" : (string)rr_tirechange == "3" ? "New Hard" : (string)rr_tirechange == "4" ? "New Wet" : (string)rr_tirechange == "5" ? "Use Soft" : (string)rr_tirechange == "6" ? "Use Medium" : (string)rr_tirechange == "7" ? "Use Hard" : (string)rr_tirechange == "8" ? "Use Wet" : $"{(string)rr_tirechange}" : "Unknown";
                                             }
                                             else
                                             {
-                                                LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange != null ? (string)fl_tirechange == "0" ? "No Change" : (string)fl_tirechange == "1" ? "New Medium" : (string)fl_tirechange == "2" ? "New Hard" : (string)fl_tirechange == "3" ? "New Wet" :  (string)fl_tirechange == "4" ? "Use Medium" : (string)fl_tirechange == "5" ? "Use Hard" : (string)fl_tirechange == "6" ? "Use Wet" :  $"{(string)fl_tirechange}" : "Unknown";
-                                                LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange != null ? (string)fr_tirechange == "0" ? "No Change" : (string)fr_tirechange == "1" ? "New Medium" : (string)fr_tirechange == "2" ? "New Hard" : (string)fr_tirechange == "3" ? "New Wet" :  (string)fr_tirechange == "4" ? "Use Medium" : (string)fr_tirechange == "5" ? "Use Hard" : (string)fr_tirechange == "6" ? "Use Wet" :  $"{(string)fr_tirechange}" : "Unknown";
-                                                LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange != null ? (string)rl_tirechange == "0" ? "No Change" : (string)rl_tirechange == "1" ? "New Medium" : (string)rl_tirechange == "2" ? "New Hard" : (string)rl_tirechange == "3" ? "New Wet" :  (string)rl_tirechange == "4" ? "Use Medium" : (string)rl_tirechange == "5" ? "Use Hard" : (string)rl_tirechange == "6" ? "Use Wet" :  $"{(string)rl_tirechange}" : "Unknown";
-                                                LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange != null ? (string)rr_tirechange == "0" ? "No Change" : (string)rr_tirechange == "1" ? "New Medium" : (string)rr_tirechange == "2" ? "New Hard" : (string)rr_tirechange == "3" ? "New Wet" :  (string)rr_tirechange == "4" ? "Use Medium" : (string)rr_tirechange == "5" ? "Use Hard" : (string)rr_tirechange == "6" ? "Use Wet" :  $"{(string)rr_tirechange}" : "Unknown";                                             
+                                                LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange != null ? (string)fl_tirechange == "0" ? "No Change" : (string)fl_tirechange == "1" ? "New Medium" : (string)fl_tirechange == "2" ? "New Hard" : (string)fl_tirechange == "3" ? "New Wet" : (string)fl_tirechange == "4" ? "Use Medium" : (string)fl_tirechange == "5" ? "Use Hard" : (string)fl_tirechange == "6" ? "Use Wet" : $"{(string)fl_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange != null ? (string)fr_tirechange == "0" ? "No Change" : (string)fr_tirechange == "1" ? "New Medium" : (string)fr_tirechange == "2" ? "New Hard" : (string)fr_tirechange == "3" ? "New Wet" : (string)fr_tirechange == "4" ? "Use Medium" : (string)fr_tirechange == "5" ? "Use Hard" : (string)fr_tirechange == "6" ? "Use Wet" : $"{(string)fr_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange != null ? (string)rl_tirechange == "0" ? "No Change" : (string)rl_tirechange == "1" ? "New Medium" : (string)rl_tirechange == "2" ? "New Hard" : (string)rl_tirechange == "3" ? "New Wet" : (string)rl_tirechange == "4" ? "Use Medium" : (string)rl_tirechange == "5" ? "Use Hard" : (string)rl_tirechange == "6" ? "Use Wet" : $"{(string)rl_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange != null ? (string)rr_tirechange == "0" ? "No Change" : (string)rr_tirechange == "1" ? "New Medium" : (string)rr_tirechange == "2" ? "New Hard" : (string)rr_tirechange == "3" ? "New Wet" : (string)rr_tirechange == "4" ? "Use Medium" : (string)rr_tirechange == "5" ? "Use Hard" : (string)rr_tirechange == "6" ? "Use Wet" : $"{(string)rr_tirechange}" : "Unknown";
                                             }
                                         }    // End New Tyre Change
 
@@ -594,15 +581,16 @@ namespace Redadeg.lmuDataPlugin
                                             LMURepairAndRefuelData.rl_TyrePressure_Psi = $"{((double)rltyrepressure * 0.14503773773020923):F2}";
                                             LMURepairAndRefuelData.rr_TyrePressure_Psi = $"{((double)rrtyrepressure * 0.14503773773020923):F2}";
 
-                                            LMURepairAndRefuelData.fl_TyreTemp = $"{((double)selectedDatas[0]["tireTemp"] - 273.15):F1}"; // Front Left Tyre
-                                            LMURepairAndRefuelData.fr_TyreTemp = $"{((double)selectedDatas[1]["tireTemp"] - 273.15):F1}"; // Front Right Tyre
-                                            LMURepairAndRefuelData.rl_TyreTemp = $"{((double)selectedDatas[2]["tireTemp"] - 273.15):F1}"; // Rear Left Tyre
-                                            LMURepairAndRefuelData.rr_TyreTemp = $"{((double)selectedDatas[3]["tireTemp"] - 273.15):F1}"; // Rear Right Tyre
-                                            LMURepairAndRefuelData.fl_BrakeTemp = $"{((double)selectedDatas[0]["brakeTemp"] - 273.15):F1}"; // Front Left Tyre
-                                            LMURepairAndRefuelData.fr_BrakeTemp = $"{((double)selectedDatas[1]["brakeTemp"] - 273.15):F1}"; // Front Right Tyre
-                                            LMURepairAndRefuelData.rl_BrakeTemp = $"{((double)selectedDatas[2]["brakeTemp"] - 273.15):F1}"; // Rear Left Tyre
-                                            LMURepairAndRefuelData.rr_BrakeTemp = $"{((double)selectedDatas[3]["brakeTemp"] - 273.15):F1}"; // Rear Right Tyre
-                                        }                                                                                                
+                                            LMURepairAndRefuelData.fl_TyreTemp = $"{((double)selectedDatas[0]["tireTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.fr_TyreTemp = $"{((double)selectedDatas[1]["tireTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rl_TyreTemp = $"{((double)selectedDatas[2]["tireTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rr_TyreTemp = $"{((double)selectedDatas[3]["tireTemp"] - 273.15):F1}";
+
+                                            LMURepairAndRefuelData.fl_BrakeTemp = $"{((double)selectedDatas[0]["brakeTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.fr_BrakeTemp = $"{((double)selectedDatas[1]["brakeTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rl_BrakeTemp = $"{((double)selectedDatas[2]["brakeTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rr_BrakeTemp = $"{((double)selectedDatas[3]["brakeTemp"] - 273.15):F1}";
+                                        }
 
                                     }
                                 }
@@ -617,7 +605,7 @@ namespace Redadeg.lmuDataPlugin
                                     LMURepairAndRefuelData.grandPrixName = trackInfo["grandPrixName"] != null ? (string)trackInfo["grandPrixName"] : "Unknown";
                                     LMURepairAndRefuelData.location = trackInfo["location"] != null ? (string)trackInfo["location"] : "Unknown";
                                     LMURepairAndRefuelData.openingYear = trackInfo["openingYear"] != null ? (string)trackInfo["openingYear"] : "Unknown";
-                                    LMURepairAndRefuelData.trackLength = trackInfo["trackLength"] != null ? $"{trackInfo["trackLength"]} Kms" : "Unknown";
+                                    LMURepairAndRefuelData.trackLength = trackInfo["trackLength"] != null ? $"{(string)trackInfo["trackLength"]} Kms" : "Unknown";
                                     LMURepairAndRefuelData.trackName = trackInfo["trackName"] != null ? (string)trackInfo["trackName"] : "Unknown";
 
                                     LMURepairAndRefuelData.Driver = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["driverName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["driverName"] : "Unknown";
@@ -629,7 +617,7 @@ namespace Redadeg.lmuDataPlugin
                                 // Start Game infos
                                 {
                                     LMURepairAndRefuelData.MultiStintState = GameStateJSONdata["MultiStintState"] != null ? (string)GameStateJSONdata["MultiStintState"] : "Unknown";
-                                    LMURepairAndRefuelData.PitEntryDist = GameStateJSONdata["PitEntryDist"] != null ? $"{((double)GameStateJSONdata["PitEntryDist"]):F2}" : "Unknown";
+                                    LMURepairAndRefuelData.PitEntryDist = $"{((double)GameStateJSONdata["PitEntryDist"]):F2}";
                                     LMURepairAndRefuelData.PitState = GameStateJSONdata["PitState"] != null ? (string)GameStateJSONdata["PitState"] : "Unknown";
                                     LMURepairAndRefuelData.isReplayActive = GameStateJSONdata["isReplayActive"] != null ? (string)GameStateJSONdata["isReplayActive"] : "Unknown";
                                     LMURepairAndRefuelData.raceFinished = GameStateJSONdata["raceFinished"] != null ? (string)GameStateJSONdata["raceFinished"] : "Unknown";
@@ -637,55 +625,56 @@ namespace Redadeg.lmuDataPlugin
                                 }
                                 // End Game Infos
 
-                                // Start Weather Probability
+                                //// Start Pit Recommendations
+                                //{
+                                //    JObject pitRecommendations = JObject.Parse(RepairAndRefuelJSONData["pitRecommendations"].ToString());
+
+                                //    LMURepairAndRefuelData.FL_TIRE = pitRecommendations["FL TIRE"] != null ? (int)pitRecommendations["FL TIRE"] : 0;
+                                //    LMURepairAndRefuelData.FR_TIRE = pitRecommendations["FR TIRE"] != null ? (int)pitRecommendations["FR TIRE"] : 0;
+                                //    LMURepairAndRefuelData.RL_TIRE = pitRecommendations["RL TIRE"] != null ? (int)pitRecommendations["RL TIRE"] : 0;
+                                //    LMURepairAndRefuelData.RR_TIRE = pitRecommendations["RR TIRE"] != null ? (int)pitRecommendations["RR TIRE"] : 0;
+                                //    LMURepairAndRefuelData.addVirtualEnergy = pitRecommendations["virtualEnergy"] != null ? $"{((double)pitRecommendations["virtualEnergy"]):F2}" : "0.0";
+                                //    LMURepairAndRefuelData.addFuel = pitRecommendations["fuel"] != null ? $"{((double)pitRecommendations["fuel"]):F2}" : "0.0";
+                                //}
+
+                                //// End Pit Recommendations
+
+                                // Start Actual Weather Infos
                                 {
-                                    JObject closeestWeatherNode = JObject.Parse(GameStateJSONdata["closeestWeatherNode"].ToString());
+                                    JObject currentWeather = JObject.Parse(TireManagementJSONdata["currentWeather"].ToString());
 
-                                    LMURepairAndRefuelData.RainChance_Probability = closeestWeatherNode["RainChance"] != null ? $"{closeestWeatherNode["RainChance"]} %" : "Unknown";
-                                    LMURepairAndRefuelData.Temperature_Probability = closeestWeatherNode["Temperature"] != null ? $"{closeestWeatherNode["Temperature"]} °C" : "Unknown";
+                                    LMURepairAndRefuelData.ambientTemp = $"{((double)currentWeather["ambientTempKelvin"] - 273.15):F1} °C";
+                                    LMURepairAndRefuelData.cloudCoverage = $"{((double)currentWeather["cloudCoverage"] * 100):F2} %";
+                                    LMURepairAndRefuelData.humidity = $"{((double)currentWeather["humidity"] * 100):F2} %";
+                                    LMURepairAndRefuelData.lightLevel = $"{((double)currentWeather["lightLevel"] * 100):F2} %";
+                                    LMURepairAndRefuelData.rainIntensity = $"{((double)currentWeather["rainIntensity"] * 100):F2} %";
+                                    LMURepairAndRefuelData.raining = $"{((double)currentWeather["raining"] * 100):F2} %";
 
-                                    var skyValue = GameStateJSONdata["closeestWeatherNode"]?["Sky"] != null ? (int)GameStateJSONdata["closeestWeatherNode"]?["Sky"] : 100;
-
-                                    var skyMapping = new Dictionary<int, string>
-                                        {
-                                            { 0, "Clear" },
-                                            { 1, "Light Clouds" },
-                                            { 2, "Partially Cloudy" },
-                                            { 3, "Mostly Cloudy" },
-                                            { 4, "Overcast" },
-                                            { 5, "Cloudy & Drizzle" },
-                                            { 6, "Cloudy & Light Rain" },
-                                            { 7, "Overcast & Light Rain" },
-                                            { 8, "Overcast & Rain" },
-                                            { 9, "Overcast & Heavy Rain" },
-                                            { 10, "Overcast & Storm" },
-                                            { 100, "Unknown" }
-                                        };
-
-                                    LMURepairAndRefuelData.Sky_Probability = skyMapping.TryGetValue(skyValue, out string sky) ? sky : "Unknown";
-                                }
-                                // End Weather Probability
-
-                                // Start Pit Recommendations
-                                {
-                                    JObject pitRecommendations = JObject.Parse(RepairAndRefuelJSONData["pitRecommendations"].ToString());
-
-                                    LMURepairAndRefuelData.FL_TIRE = pitRecommendations["FL TIRE"] != null ? (int)pitRecommendations["FL TIRE"] : 0;
-                                    LMURepairAndRefuelData.FR_TIRE = pitRecommendations["FR TIRE"] != null ? (int)pitRecommendations["FR TIRE"] : 0;
-                                    LMURepairAndRefuelData.RL_TIRE = pitRecommendations["RL TIRE"] != null ? (int)pitRecommendations["RL TIRE"] : 0;
-                                    LMURepairAndRefuelData.RR_TIRE = pitRecommendations["RR TIRE"] != null ? (int)pitRecommendations["RR TIRE"] : 0;
-                                    LMURepairAndRefuelData.addVirtualEnergy = pitRecommendations["virtualEnergy"] != null ? $"{((double)pitRecommendations["virtualEnergy"]):F2}" : "0.0";
-                                    LMURepairAndRefuelData.addFuel = pitRecommendations["fuel"] != null ? $"{((double)pitRecommendations["fuel"]):F2}" : "0.0";
                                 }
 
-                                // End Pit Recommendations
+                                // End Actual Weather Infos
 
                                 // Start Track Condition
-                                LMURepairAndRefuelData.trackTemp = RaceHistoryJSONdata["trackCondition"]?["trackTemp"] != null ? $"{((double)RaceHistoryJSONdata["trackCondition"]?["trackTemp"] - 273.15):F1} °C" : "Unknown";
-                                LMURepairAndRefuelData.trackWetness = RaceHistoryJSONdata["trackCondition"]?["trackWetness"] != null ? $"{((double)RaceHistoryJSONdata["trackCondition"]?["trackWetness"] * 100):F0} %" : "Unknown";
+                                {
+                                    LMURepairAndRefuelData.trackTemp = RaceHistoryJSONdata["trackCondition"]?["trackTemp"] != null ? $"{((double)RaceHistoryJSONdata["trackCondition"]?["trackTemp"] - 273.15):F1} °C" : "Unknown";
+                                    var trackWetness = RaceHistoryJSONdata["trackCondition"]?["trackWetness"] != null ? (float)RaceHistoryJSONdata["trackCondition"]?["trackWetness"] * 100 : (float?)null;
 
+                                    LMURepairAndRefuelData.trackWetness = $"{((double)trackWetness):F2} %";
+
+                                    if (trackWetness <= 0.5)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Dry";
+                                    else if (trackWetness <= 7.5)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Damp";
+                                    else if (trackWetness <= 17.5)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Slightly wet";
+                                    else if (trackWetness <= 40)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Wet";
+                                    else if (trackWetness <= 70)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Very wet";
+                                    else if (trackWetness <= 100)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Extremely wet";
+                                }
                                 // End Track Condition
-
                             }
 
                         }
@@ -869,11 +858,17 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.GameInfos.RaceFinished", this.GetType(), LMURepairAndRefuelData.raceFinished);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.RainChance", this.GetType(), LMURepairAndRefuelData.rainChance);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.RainChance_Probability", this.GetType(), LMURepairAndRefuelData.RainChance_Probability);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Sky_Probability", this.GetType(), LMURepairAndRefuelData.Sky_Probability);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Temperature_Probability", this.GetType(), LMURepairAndRefuelData.Temperature_Probability);
+
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.AmbientTemp", this.GetType(), LMURepairAndRefuelData.ambientTemp);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.CloudCoverage", this.GetType(), LMURepairAndRefuelData.cloudCoverage);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.Humidity", this.GetType(), LMURepairAndRefuelData.humidity);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.LightLevel", this.GetType(), LMURepairAndRefuelData.lightLevel);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.RainIntensity", this.GetType(), LMURepairAndRefuelData.rainIntensity);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.Raining", this.GetType(), LMURepairAndRefuelData.raining);
+
                                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Temp", this.GetType(), LMURepairAndRefuelData.trackTemp);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Wetness", this.GetType(), LMURepairAndRefuelData.trackWetness);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Wetness_Text", this.GetType(), LMURepairAndRefuelData.trackWetness_Text);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Virtual_Energy", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Virtual_Energy_Text", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy_Text);
@@ -905,12 +900,12 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi);
 
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Energy.FuelConsumption_L", this.GetType(), LMURepairAndRefuelData.fuelConsumption);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Energy.FuelFractionPerLap_%", this.GetType(), LMURepairAndRefuelData.fuelFractionPerLap);
@@ -935,7 +930,6 @@ namespace Redadeg.lmuDataPlugin
                 }
             }
         }
-
         private string GetPMCValue(JArray pitMenuJSONData, int pmcValue, string defaultValue = "Unknown")
         {
             JToken item = pitMenuJSONData?.FirstOrDefault(x => (int?)x["PMC Value"] == pmcValue);
@@ -1404,11 +1398,17 @@ namespace Redadeg.lmuDataPlugin
             pluginManager.AddProperty("Redadeg.lmu.GameInfos.RaceFinished", this.GetType(), LMURepairAndRefuelData.raceFinished);
 
             pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.RainChance", this.GetType(), LMURepairAndRefuelData.rainChance);
-            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.RainChance_Probability", this.GetType(), LMURepairAndRefuelData.RainChance_Probability);
-            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Sky_Probability", this.GetType(), LMURepairAndRefuelData.Sky_Probability);
-            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Temperature_Probability", this.GetType(), LMURepairAndRefuelData.Temperature_Probability);
+
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.AmbientTemp", this.GetType(), LMURepairAndRefuelData.ambientTemp);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.CloudCoverage", this.GetType(), LMURepairAndRefuelData.cloudCoverage);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.Humidity", this.GetType(), LMURepairAndRefuelData.humidity);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.LightLevel", this.GetType(), LMURepairAndRefuelData.lightLevel);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.RainIntensity", this.GetType(), LMURepairAndRefuelData.rainIntensity);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.Raining", this.GetType(), LMURepairAndRefuelData.raining);
+
             pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Track.Temp", this.GetType(), LMURepairAndRefuelData.trackTemp);
             pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Track.Wetness", this.GetType(), LMURepairAndRefuelData.trackWetness);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Track.Wetness_Text", this.GetType(), LMURepairAndRefuelData.trackWetness_Text);
 
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Virtual_Energy", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Virtual_Energy_Text", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy_Text);
@@ -1442,12 +1442,12 @@ namespace Redadeg.lmuDataPlugin
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi);
 
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
 
             pluginManager.AddProperty("Redadeg.lmu.Energy.FuelConsumption_L", this.GetType(), LMURepairAndRefuelData.fuelConsumption);
             pluginManager.AddProperty("Redadeg.lmu.Energy.FuelFractionPerLap_%", this.GetType(), LMURepairAndRefuelData.fuelFractionPerLap);

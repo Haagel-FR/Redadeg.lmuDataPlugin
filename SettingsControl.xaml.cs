@@ -211,7 +211,6 @@ namespace Redadeg.lmuDataPlugin
     //public class for exchanging the data with the main cs file (Init and DataUpdate function)
     public class LMURepairAndRefuelData
     {
-
         public static double mPlayerBestLapTime { get; set; }
         public static double mPlayerBestLapSector1 { get; set; }
         public static double mPlayerBestLapSector2 { get; set; }
@@ -291,7 +290,7 @@ namespace Redadeg.lmuDataPlugin
         public static double pitStopLength { get; set; }
         public static string path { get; set; }
         public static double timeOfDay { get; set; }
-        public static int rainChance { get; set; }
+        public static string rainChance { get; set; }
 
         public static string VM_ANTILOCKBRAKESYSTEMMAP { get; set; }
         public static string VM_BRAKE_BALANCE { get; set; }
@@ -346,9 +345,6 @@ namespace Redadeg.lmuDataPlugin
         public static string PitState { get; set; }
         public static object PitEntryDist { get; set; }
         public static string MultiStintState { get; set; }
-        public static string RainChance_Probability { get; set; }
-        public static string Sky_Probability { get; set; }
-        public static string Temperature_Probability { get; set; }
         public static int FL_TIRE { get; set; }
         public static int FR_TIRE { get; set; }
         public static int RL_TIRE { get; set; }
@@ -377,6 +373,13 @@ namespace Redadeg.lmuDataPlugin
         public static string fl_Tyre_NewPressure_kPa_Text { get; set; }
         public static string PitMVirtualEnergy_Text { get; set; }
         public static string mChangedParamValueU8 { get; set; }
+        public static string trackWetness_Text { get; set; }
+        public static string ambientTemp { get; set; }
+        public static string cloudCoverage { get; set; }
+        public static string humidity { get; set; }
+        public static string lightLevel { get; set; }
+        public static string rainIntensity { get; set; }
+        public static string raining { get; set; }
     }
 
 
