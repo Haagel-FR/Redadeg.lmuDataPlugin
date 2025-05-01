@@ -2,39 +2,20 @@ using GameReaderCommon;
 using SimHub.Plugins;
 using System;
 using System.Text;  //For File Encoding
-using System.Windows.Forms;
-using System.Windows.Controls;
 //using System.Linq; // Needed for Properties().OrderBy
 using Newtonsoft.Json.Linq; // Needed for JObject
 using System.IO;    // Need for read/write JSON settings file
 using SimHub;
 //using SimHub.Plugins.InputPlugins;
 using System.Net;
+using System.Net.Http;
 using System.Collections.Generic;
-using SimHub.Plugins.InputPlugins;   // Needed for Logging
-
-using System.Collections.ObjectModel;
-
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Media;
-using Newtonsoft.Json;
-using SimHub.Plugins.Resources;
-using WoteverCommon;
-using WoteverCommon.Extensions;
-using WoteverLocalization;
-using static WoteverCommon.JsonExtensions;
-using static System.Net.Mime.MediaTypeNames;
-using SimHub.Plugins.OutputPlugins.Dash.WPFUI;
-using System.Xml.Linq;
-using System.Windows.Markup;
-using SimHub.Plugins.DataPlugins.DataCore;
+using System.Timers;
+using System.Windows.Controls;
 using System.Linq.Expressions;
-using System.Windows.Documents;
-using SimHub.Plugins.DataPlugins.PersistantTracker;
-
 
 
 namespace Redadeg.lmuDataPlugin
@@ -66,6 +47,7 @@ namespace Redadeg.lmuDataPlugin
         private bool GameInMenu = true;
         private bool GameRunning = true;
         private bool GamePaused = false;
+        private bool GameReplay = true;
         //private JoystickManagerSlimDX gamepadinput;
         //private string CarModel = "";
         private Dictionary<string, string> frontABR;
@@ -117,61 +99,13 @@ namespace Redadeg.lmuDataPlugin
         MappedBuffer<rF2Scoring> scoringBuffer = new MappedBuffer<rF2Scoring>(LMU_Constants.MM_SCORING_FILE_NAME, true /*partial*/, true /*skipUnchanged*/);
         MappedBuffer<rF2Rules> rulesBuffer = new MappedBuffer<rF2Rules>(LMU_Constants.MM_RULES_FILE_NAME, true /*partial*/, true /*skipUnchanged*/);
 
+
         LMU_Extended lmu_extended;
       //  rF2Scoring scoring;
         rF2Rules rules;
         WebClient wc = new WebClient();
         bool lmu_extended_connected = false;
         bool rf2_score_connected = false;
-
-
-        //        private void ComputeEnergyData(int CurrentLap, double CurrentLapTime, int pitState ,bool IsLapValid, PluginManager pluginManager)
-        //        {
-        //           // pluginManager.SetPropertyValue("georace.lmu.NewLap", this.GetType(), CurrentLap + " - PitState " + pitState);
-
-
-        //            //if (pitState > 0)
-        //            //{
-        //            //    energy_LastLapEnergy = currentVirtualEnergy;
-        //            // pluginManager.SetPropertyValue("georace.lmu.CurrentLapTimeDifOldNew", this.GetType(), energy_LastLapEnergy + " - 112" + LMURepairAndRefuelData.currentVirtualEnergy);
-        //            //}
-
-        //            if (energy_LastLapEnergy > LMURepairAndRefuelData.currentVirtualEnergy)
-        //            {
-        //                int energyPerLastLapRaw = energy_LastLapEnergy - LMURepairAndRefuelData.currentVirtualEnergy;
-
-        //                if (OutFromPitFlag) energyPerLastLapRaw = energyPerLastLapRealTime;
-        //;
-
-        //                //pluginManager.SetPropertyValue("georace.lmu.CurrentLapTimeDifOldNew", this.GetType(),  energyPerLastLapRaw);
-
-        //                if ((pitState != CurrentLap && IsLapValid) || OutFromPitFlag || InToPitFlag)
-        //                {
-        //                    IsInPit = -1;
-        //                    if (LapTimes.Count < 5)
-        //                    {
-        //                        energy_CurrentIndex++;
-        //                        LapTimes.Add(CurrentLapTime);
-        //                        EnergyConsuptions.Add(energyPerLastLapRaw);
-
-        //                    }
-        //                    else if (LapTimes.Count == 5)
-        //                    {
-        //                        energy_CurrentIndex++;
-        //                        if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
-        //                        LapTimes[energy_CurrentIndex] = CurrentLapTime;
-        //                        EnergyConsuptions[energy_CurrentIndex] = energyPerLastLapRaw;
-        //                    }
-        //                }
-        //                LMURepairAndRefuelData.energyPerLastLap = (double)(energyPerLastLapRaw);
-        //                LMURepairAndRefuelData.energyPerLast5Lap = EnergyConsuptions.Average() / LMURepairAndRefuelData.maxVirtualEnergy;
-
-        //                    //pluginManager.SetPropertyValue("georace.lmu.CurrentLapTimeDifOldNew", this.GetType(), LapTimes.Average() + " - " + EnergyConsuptions.Average() / LMURepairAndRefuelData.maxVirtualEnergy);
-        //                }
-
-
-        //            energy_LastLapEnergy = LMURepairAndRefuelData.currentVirtualEnergy;
-        //        }
 
         public void DataUpdate(PluginManager pluginManager, ref GameData data)
         {
@@ -180,8 +114,9 @@ namespace Redadeg.lmuDataPlugin
             GameInMenu = data.GameInMenu;
             GameRunning = data.GameRunning;
             GamePaused = data.GamePaused;
+            GameReplay = data.GameReplay;
 
-            if (data.GameRunning && !data.GameInMenu && !data.GamePaused && !StopUpdate)
+            if (data.GameRunning && !data.GameInMenu && !data.GamePaused && !data.GameReplay && !StopUpdate)
             {
                 updateDataDelayCounter--;
                 if (curGame == "LMU")   //TODO: check a record where the game was captured from startup on
@@ -194,94 +129,117 @@ namespace Redadeg.lmuDataPlugin
                             JObject SetupJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/CarSetupOverview"));
                             JObject carSetup = JObject.Parse(SetupJSONdata["carSetup"].ToString());
                             JObject garageValues = JObject.Parse(carSetup["garageValues"].ToString());
+                            //  JObject pitRecommendations = JObject.Parse(JSONdata["pitRecommendations"].ToString());
+                            JObject VM_ANTILOCKBRAKESYSTEMMAP = JObject.Parse(garageValues["VM_ANTILOCKBRAKESYSTEMMAP"].ToString());
+                            JObject VM_BRAKE_BALANCE = JObject.Parse(garageValues["VM_BRAKE_BALANCE"].ToString());
+                            JObject VM_BRAKE_MIGRATION = JObject.Parse(garageValues["VM_BRAKE_MIGRATION"].ToString());
+                            JObject VM_ENGINE_BRAKEMAP = JObject.Parse(garageValues["VM_ENGINE_BRAKEMAP"].ToString());
 
-                            if (LMURepairAndRefuelData.mChangedParamType == -1)
-                            {                       
-                                LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = garageValues["VM_ANTILOCKBRAKESYSTEMMAP"]?["stringValue"] != null ? (string)garageValues["VM_ANTILOCKBRAKESYSTEMMAP"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_BRAKE_BALANCE = garageValues["VM_BRAKE_BALANCE"]?["stringValue"] != null ? (string)garageValues["VM_BRAKE_BALANCE"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_BRAKE_MIGRATION = garageValues["VM_BRAKE_MIGRATION"]?["stringValue"] != null ? (string)garageValues["VM_BRAKE_MIGRATION"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_ENGINE_BRAKEMAP = garageValues["VM_ENGINE_BRAKEMAP"]?["stringValue"] != null ? (string)garageValues["VM_ENGINE_BRAKEMAP"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_ELECTRIC_MOTOR_MAP = garageValues["VM_ELECTRIC_MOTOR_MAP"]?["stringValue"] != null ? (string)garageValues["VM_ELECTRIC_MOTOR_MAP"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_ENGINE_MIXTURE = garageValues["VM_ENGINE_MIXTURE"]?["stringValue"] != null ? (string)garageValues["VM_ENGINE_MIXTURE"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_REGEN_LEVEL = garageValues["VM_REGEN_LEVEL"]?["stringValue"] != null ? (string)garageValues["VM_REGEN_LEVEL"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_TRACTIONCONTROLMAP = garageValues["VM_TRACTIONCONTROLMAP"]?["stringValue"] != null ? (string)garageValues["VM_TRACTIONCONTROLMAP"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = garageValues["VM_TRACTIONCONTROLPOWERCUTMAP"]?["stringValue"] != null ? (string)garageValues["VM_TRACTIONCONTROLPOWERCUTMAP"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = garageValues["VM_TRACTIONCONTROLSLIPANGLEMAP"]?["stringValue"] != null ? (string)garageValues["VM_TRACTIONCONTROLSLIPANGLEMAP"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_FRONT_ANTISWAY = garageValues["VM_FRONT_ANTISWAY"]?["stringValue"] != null ? (string)garageValues["VM_FRONT_ANTISWAY"]?["stringValue"] : "Off";
-                                LMURepairAndRefuelData.VM_REAR_ANTISWAY = garageValues["VM_REAR_ANTISWAY"]?["stringValue"] != null ? (string)garageValues["VM_REAR_ANTISWAY"]?["stringValue"] : "Off";
+                            JObject VM_ELECTRIC_MOTOR_MAP = JObject.Parse(garageValues["VM_ELECTRIC_MOTOR_MAP"].ToString());
+                            JObject VM_ENGINE_MIXTURE = JObject.Parse(garageValues["VM_ENGINE_MIXTURE"].ToString());
 
-                            }
-                            else
-                            {
-                                switch (LMURepairAndRefuelData.mChangedParamType)
+                            JObject VM_REGEN_LEVEL = JObject.Parse(garageValues["VM_REGEN_LEVEL"].ToString());
+
+                            JObject VM_TRACTIONCONTROLMAP = JObject.Parse(garageValues["VM_TRACTIONCONTROLMAP"].ToString());
+                            JObject VM_TRACTIONCONTROLPOWERCUTMAP = JObject.Parse(garageValues["VM_TRACTIONCONTROLPOWERCUTMAP"].ToString());
+                            JObject VM_TRACTIONCONTROLSLIPANGLEMAP = JObject.Parse(garageValues["VM_TRACTIONCONTROLSLIPANGLEMAP"].ToString());
+                            JObject VM_REAR_ANTISWAY = JObject.Parse(garageValues["VM_REAR_ANTISWAY"].ToString());
+                            JObject VM_FRONT_ANTISWAY = JObject.Parse(garageValues["VM_FRONT_ANTISWAY"].ToString());
+
+                            byte[] utf8Bytes = Encoding.Default.GetBytes(LMURepairAndRefuelData.mChangedParamValue);
+                            string utf8Text = Encoding.UTF8.GetString(utf8Bytes);
+                            LMURepairAndRefuelData.mChangedParamValueU8 = utf8Text.Normalize(NormalizationForm.FormC);
+
+                                if (LMURepairAndRefuelData.mChangedParamType == -1)
                                 {
-                                    case 2:
-                                        LMURepairAndRefuelData.VM_TRACTIONCONTROLMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 3:
-                                        LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 6:
-                                        LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 7:
-                                        LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 8:
-                                        if (data.OldData.CarModel.Equals("Ferrari AF Corse 2024") || data.OldData.CarModel.Equals("Ferrari AF Corse"))
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["F" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                        else if (data.OldData.CarModel.Equals("Peugeot TotalEnergies 2024") || data.OldData.CarModel.Equals("Porsche Penske Motorsport 2024") || data.OldData.CarModel.Equals("Toyota Gazoo Racing 2024") || data.OldData.CarModel.Equals("Peugeot TotalEnergies") || data.OldData.CarModel.Equals("Porsche Penske Motorsport") || data.OldData.CarModel.Equals("Toyota Gazoo Racing"))
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["P" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                        else
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR[LMURepairAndRefuelData.mChangedParamValue]; }
-                                        break;
-                                    case 9:
-                                        if (LMURepairAndRefuelData.mChangedParamValue.Contains("kW") || LMURepairAndRefuelData.mChangedParamValue.Contains("Off") || LMURepairAndRefuelData.mChangedParamValue.Contains("Safety-car") || LMURepairAndRefuelData.mChangedParamValue.Contains("Race"))
-                                        {
-                                            if (data.OldData != null && data.OldData.CarClass.Contains("Hyper"))
-                                            {
-                                                LMURepairAndRefuelData.VM_ELECTRIC_MOTOR_MAP = LMURepairAndRefuelData.mChangedParamValue;
-                                            }
-                                            else
-                                            {
-                                                LMURepairAndRefuelData.VM_ENGINE_MIXTURE = LMURepairAndRefuelData.mChangedParamValue;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            if (data.OldData.CarModel.Equals("Ferrari AF Corse 2024") || data.OldData.CarModel.Equals("Ferrari AF Corse"))
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["F" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                            else if (data.OldData.CarModel.Equals("Peugeot TotalEnergies 2024") || data.OldData.CarModel.Equals("Porsche Penske Motorsport 2024") || data.OldData.CarModel.Equals("Toyota Gazoo Racing 2024") || data.OldData.CarModel.Equals("Peugeot TotalEnergies") || data.OldData.CarModel.Equals("Porsche Penske Motorsport") || data.OldData.CarModel.Equals("Toyota Gazoo Racing"))
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["P" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                            else
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR[LMURepairAndRefuelData.mChangedParamValue]; }
-                                        }
-                                        break;
-                                    case 10:
-                                        LMURepairAndRefuelData.VM_BRAKE_BALANCE = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 11:
-                                        LMURepairAndRefuelData.VM_REGEN_LEVEL = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 15:
-                                        LMURepairAndRefuelData.VM_BRAKE_MIGRATION = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    default:
-                                        // code block
-                                        break;
+                                    LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = VM_ANTILOCKBRAKESYSTEMMAP["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_BRAKE_BALANCE = VM_BRAKE_BALANCE["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_BRAKE_MIGRATION = VM_BRAKE_MIGRATION["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_ENGINE_BRAKEMAP = VM_ENGINE_BRAKEMAP["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_ELECTRIC_MOTOR_MAP = VM_ELECTRIC_MOTOR_MAP["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_ENGINE_MIXTURE = VM_ENGINE_MIXTURE["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_REGEN_LEVEL = VM_REGEN_LEVEL["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_TRACTIONCONTROLMAP = VM_TRACTIONCONTROLMAP["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = VM_TRACTIONCONTROLPOWERCUTMAP["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = VM_TRACTIONCONTROLSLIPANGLEMAP["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_REAR_ANTISWAY = VM_REAR_ANTISWAY["stringValue"].ToString();
+                                    LMURepairAndRefuelData.VM_FRONT_ANTISWAY = VM_FRONT_ANTISWAY["stringValue"].ToString();
                                 }
-                            }
+                                else
+                                {
+                                    switch (LMURepairAndRefuelData.mChangedParamType)
+                                    {
+                                        case 2:
+                                            LMURepairAndRefuelData.VM_TRACTIONCONTROLMAP = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        case 3:
+                                            LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        case 6:
+                                            LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        case 7:
+                                            LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        case 8:
+                                            if (data.OldData != null && (data.OldData.CarModel.Equals("Ferrari AF Corse 2024") || data.OldData.CarModel.Equals("Ferrari AF Corse")))
+                                            { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["F" + LMURepairAndRefuelData.mChangedParamValueU8]; }
+                                            else if (data.OldData != null && (data.OldData.CarModel.Equals("Peugeot TotalEnergies 2024") || data.OldData.CarModel.Equals("Porsche Penske Motorsport 2024") || data.OldData.CarModel.Equals("Toyota Gazoo Racing 2024") || data.OldData.CarModel.Equals("Peugeot TotalEnergies") || data.OldData.CarModel.Equals("Porsche Penske Motorsport") || data.OldData.CarModel.Equals("Toyota Gazoo Racing")))
+                                            { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["P" + LMURepairAndRefuelData.mChangedParamValueU8]; }
+                                            else
+                                            { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR[LMURepairAndRefuelData.mChangedParamValueU8]; }
+                                            break;
+                                        case 9:
+                                            if (LMURepairAndRefuelData.mChangedParamValueU8.Contains("kW") || LMURepairAndRefuelData.mChangedParamValueU8.Contains("Off") || LMURepairAndRefuelData.mChangedParamValueU8.Contains("Safety-car") || LMURepairAndRefuelData.mChangedParamValueU8.Contains("Race"))
+                                            {
+                                                if (data.OldData != null && data.OldData.CarClass.Contains("Hyper"))
+                                                {
+                                                    LMURepairAndRefuelData.VM_ELECTRIC_MOTOR_MAP = LMURepairAndRefuelData.mChangedParamValueU8;
+                                                }
+                                                else
+                                                {
+                                                    LMURepairAndRefuelData.VM_ENGINE_MIXTURE = LMURepairAndRefuelData.mChangedParamValueU8;
+                                                }
+                                            }
+                                            else
+                                            {
+                                                if (data.OldData != null && (data.OldData.CarModel.Equals("Ferrari AF Corse 2024") || data.OldData.CarModel.Equals("Ferrari AF Corse")))
+                                                { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["F" + LMURepairAndRefuelData.mChangedParamValueU8]; }
+                                                else if (data.OldData != null && (data.OldData.CarModel.Equals("Peugeot TotalEnergies 2024") || data.OldData.CarModel.Equals("Porsche Penske Motorsport 2024") || data.OldData.CarModel.Equals("Toyota Gazoo Racing 2024") || data.OldData.CarModel.Equals("Peugeot TotalEnergies") || data.OldData.CarModel.Equals("Porsche Penske Motorsport") || data.OldData.CarModel.Equals("Toyota Gazoo Racing")))
+                                                { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["P" + LMURepairAndRefuelData.mChangedParamValueU8]; }
+                                                else
+                                                { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR[LMURepairAndRefuelData.mChangedParamValueU8]; }
+                                            }
+                                            break;
+                                        case 10:
+                                            LMURepairAndRefuelData.VM_BRAKE_BALANCE = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        case 11:
+                                            LMURepairAndRefuelData.VM_REGEN_LEVEL = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        case 15:
+                                            LMURepairAndRefuelData.VM_BRAKE_MIGRATION = LMURepairAndRefuelData.mChangedParamValueU8;
+                                            break;
+                                        default:
+                                            // code block
+                                            break;
+                                    }
+                                }
                         }
                         catch
                         {
 
                         }
+                    }
+                    try
+                    {
 
-                        try
+                        JSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel"));
+                        JObject TireMagagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
+                        JObject GameStateJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetGameState"));
+                        JObject InfoForEventJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetSessionsInfoForEvent"));
+
                         {
-                            JSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel"));
-                            JObject TireMagagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
-                            JObject GameStateJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetGameState"));
                             JObject fuelInfo = JObject.Parse(JSONdata["fuelInfo"].ToString());
                             JObject pitStopLength = JObject.Parse(JSONdata["pitStopLength"].ToString());
 
@@ -309,12 +267,11 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.currentFuel = fuelInfo["currentFuel"] != null ? (int)fuelInfo["currentFuel"] : 0;
                             LMURepairAndRefuelData.timeOfDay = GameStateJSONdata["timeOfDay"] != null ? (double)GameStateJSONdata["timeOfDay"] : 0;
 
-                            JObject InfoForEventJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetSessionsInfoForEvent"));
                             JObject scheduledSessions = JObject.Parse(InfoForEventJSONdata.ToString());
 
                             foreach (JObject Sessions in scheduledSessions["scheduledSessions"])
                             {
-                                if (Sessions["name"].ToString().ToUpper().Equals(data.NewData.SessionTypeName.ToUpper())) LMURepairAndRefuelData.rainChance = Sessions["rainChance"] != null ? (int)Sessions["rainChance"] : 0;
+                                if (Sessions["name"].ToString().ToUpper().Equals(data.NewData.SessionTypeName.ToUpper())) LMURepairAndRefuelData.rainChance = $"{((double)Sessions["rainChance"]):F2} %";
                             }
 
                             LMURepairAndRefuelData.maxVirtualEnergy = fuelInfo["maxVirtualEnergy"] != null ? (int)fuelInfo["maxVirtualEnergy"] : 0;
@@ -328,15 +285,14 @@ namespace Redadeg.lmuDataPlugin
                             //isStopAndGo = false;
                             //isDamaged = false;
                         }
-                        catch (Exception ex2)
-                        {
-                            Logging.Current.Info("currentVirtualEnergy: " + ex2.ToString());
-                            LMURepairAndRefuelData.currentVirtualEnergy = 0;
-                            LMURepairAndRefuelData.maxVirtualEnergy = 0;
-                        }
-
                     }
 
+                    catch (Exception ex2)
+                    {
+                        Logging.Current.Info("currentVirtualEnergy: " + ex2.ToString());
+                        LMURepairAndRefuelData.currentVirtualEnergy = 0;
+                        LMURepairAndRefuelData.maxVirtualEnergy = 0;
+                    }
 
                     //detect out from pit
                     if (data?.OldData?.IsInPit != null && data?.NewData?.IsInPit != null && data.OldData.IsInPit > data.NewData.IsInPit)
@@ -396,69 +352,69 @@ namespace Redadeg.lmuDataPlugin
                             updateConsuptionFlag = false;
                             try
                             {
-
-                                //JObject SetupJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RaceHistory"));
                                 JObject TireManagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
-                                JObject expectedUsage = JObject.Parse(TireManagementJSONdata["expectedUsage"].ToString());
 
-                                float fuelConsumption = expectedUsage["fuelConsumption"] != null ? (float)expectedUsage["fuelConsumption"] : 0;
-                                double fuelFractionPerLap = expectedUsage["fuelFractionPerLap"] != null ? (double)expectedUsage["fuelFractionPerLap"] : 0;
-                                float virtualEnergyConsumption = expectedUsage["virtualEnergyConsumption"] != null ? (float)((double)expectedUsage["virtualEnergyConsumption"] / (double)LMURepairAndRefuelData.maxVirtualEnergy * 100) : (float)0.0;
-                                double virtualEnergyFractionPerLap = expectedUsage["virtualEnergyFractionPerLap"] != null ? (double)expectedUsage["virtualEnergyFractionPerLap"] : 0;
-                                //JObject raceHistory = JObject.Parse(SetupJSONdata["raceHistory"].ToString());
-                                //double LastLapConsumption = 0;
-                                //int lapsCompletedCount = 0;
-
-                                //EnergyConsuptions.Clear();
-                                //FuelConsuptions.Clear();
-                                //LapTimes.Clear();
-                                LMURepairAndRefuelData.fuelConsumption = (float)Math.Round(fuelConsumption, 2);
-                                LMURepairAndRefuelData.fuelFractionPerLap = (double)Math.Round((fuelFractionPerLap * 100), 4);
-                                LMURepairAndRefuelData.virtualEnergyFractionPerLap = (double)Math.Round((virtualEnergyFractionPerLap * 100), 4);
-
-                                LMURepairAndRefuelData.energyPerLastLap = virtualEnergyConsumption;
-
-                                if (EnergyConsuptions.Count < 5)
                                 {
-                                    energy_CurrentIndex++;
-                                    EnergyConsuptions.Add(virtualEnergyConsumption);
-                                }
-                                else if (EnergyConsuptions.Count == 5)
-                                {
-                                    energy_CurrentIndex++;
-                                    if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
-                                    EnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
-                                }
+                                    JObject expectedUsage = JObject.Parse(TireManagementJSONdata["expectedUsage"].ToString());
 
-                                if (IsLapValid && !LapInvalidated && !OutFromPitFlag && !InToPitFlag && data.OldData.IsInPit == 0)
-                                {
-                                    if (LapTimes.Count < 5)
+                                    float fuelConsumption = expectedUsage["fuelConsumption"] != null ? (float)expectedUsage["fuelConsumption"] : 0;
+                                    double fuelFractionPerLap = expectedUsage["fuelFractionPerLap"] != null ? (double)expectedUsage["fuelFractionPerLap"] : 0;
+                                    float virtualEnergyConsumption = expectedUsage["virtualEnergyConsumption"] != null ? (float)((double)expectedUsage["virtualEnergyConsumption"] / (double)LMURepairAndRefuelData.maxVirtualEnergy * 100) : (float)0.0;
+                                    double virtualEnergyFractionPerLap = expectedUsage["virtualEnergyFractionPerLap"] != null ? (double)expectedUsage["virtualEnergyFractionPerLap"] : 0;
+                                    //JObject raceHistory = JObject.Parse(SetupJSONdata["raceHistory"].ToString());
+                                    //double LastLapConsumption = 0;
+                                    //int lapsCompletedCount = 0;
+
+                                    //EnergyConsuptions.Clear();
+                                    //FuelConsuptions.Clear();
+                                    //LapTimes.Clear();
+                                    LMURepairAndRefuelData.fuelConsumption = (float)Math.Round(fuelConsumption, 2);
+                                    LMURepairAndRefuelData.fuelFractionPerLap = (double)Math.Round((fuelFractionPerLap * 100), 4);
+                                    LMURepairAndRefuelData.virtualEnergyFractionPerLap = (double)Math.Round((virtualEnergyFractionPerLap * 100), 4);
+
+                                    LMURepairAndRefuelData.energyPerLastLap = virtualEnergyConsumption;
+
+                                    if (EnergyConsuptions.Count < 5)
                                     {
                                         energy_CurrentIndex++;
-                                        ClearEnergyConsuptions.Add(virtualEnergyConsumption);
-                                        FuelConsuptions.Add(fuelConsumption);
-                                        LapTimes.Add((float)lastLapTime);
-
+                                        EnergyConsuptions.Add(virtualEnergyConsumption);
                                     }
-                                    else if (LapTimes.Count == 5)
+                                    else if (EnergyConsuptions.Count == 5)
                                     {
                                         energy_CurrentIndex++;
                                         if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
-                                        LapTimes[energy_CurrentIndex] = (float)lastLapTime;
-                                        ClearEnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
-                                        FuelConsuptions[energy_CurrentIndex] = fuelConsumption;
+                                        EnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
+                                    }
+
+                                    if (IsLapValid && !LapInvalidated && !OutFromPitFlag && !InToPitFlag && data.OldData.IsInPit == 0)
+                                    {
+                                        if (LapTimes.Count < 5)
+                                        {
+                                            energy_CurrentIndex++;
+                                            ClearEnergyConsuptions.Add(virtualEnergyConsumption);
+                                            FuelConsuptions.Add(fuelConsumption);
+                                            LapTimes.Add((float)lastLapTime);
+
+                                        }
+                                        else if (LapTimes.Count == 5)
+                                        {
+                                            energy_CurrentIndex++;
+                                            if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
+                                            LapTimes[energy_CurrentIndex] = (float)lastLapTime;
+                                            ClearEnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
+                                            FuelConsuptions[energy_CurrentIndex] = fuelConsumption;
+                                        }
+                                    }
+                                    // Logging.Current.Info("Last Lap: " + lastLapTime.ToString() + " virtualEnergyConsumption: " + virtualEnergyConsumption.ToString() + " Raw: " + (expectedUsage["virtualEnergyConsumption"] != null ? (float)(double)expectedUsage["virtualEnergyConsumption"] : 0).ToString());
+                                    if (EnergyConsuptions.Count() > 0)
+                                    {
+                                        LMURepairAndRefuelData.energyPerLast5Lap = (float)EnergyConsuptions.Average();
+                                    }
+                                    else
+                                    {
+                                        LMURepairAndRefuelData.energyPerLast5Lap = 0;
                                     }
                                 }
-                                // Logging.Current.Info("Last Lap: " + lastLapTime.ToString() + " virtualEnergyConsumption: " + virtualEnergyConsumption.ToString() + " Raw: " + (expectedUsage["virtualEnergyConsumption"] != null ? (float)(double)expectedUsage["virtualEnergyConsumption"] : 0).ToString());
-                                if (EnergyConsuptions.Count() > 0)
-                                {
-                                    LMURepairAndRefuelData.energyPerLast5Lap = (float)EnergyConsuptions.Average();
-                                }
-                                else
-                                {
-                                    LMURepairAndRefuelData.energyPerLast5Lap = 0;
-                                }
-
                             }
                             catch (Exception ex)
                             {
@@ -472,317 +428,259 @@ namespace Redadeg.lmuDataPlugin
                     //Calculate Energy consumption END
 
                     // Start New Datas 04-2025
+
                     {
                         try
                         {
-                                JObject TireManagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
-                                JObject GameStateJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetGameState"));
-                                JObject RaceHistoryJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RaceHistory"));
-                                JObject RepairAndRefuelJSONDatas = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel"));
+                            JObject TireManagementJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/TireManagement"));
+                            JObject GameStateJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/sessions/GetGameState"));
+                            JObject RaceHistoryJSONdata = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RaceHistory"));
+                            JObject RepairAndRefuelJSONData = JObject.Parse(wc.DownloadString("http://localhost:6397/rest/garage/UIScreen/RepairAndRefuel"));
+                            JArray pitMenuJSONData = JArray.Parse(wc.DownloadString("http://localhost:6397/rest/garage/PitMenu/receivePitMenu"));
 
-                            // Start Fuel & Energy
                             {
-                                JObject expectedUsage = JObject.Parse(TireManagementJSONdata["expectedUsage"].ToString());
+                                // Start New Repair Damage
+                                {                                  
+                                    var RepairDamageText = GetPMCText(pitMenuJSONData, 1, "Unknown");
 
-                                float fuelConsumption = expectedUsage["fuelConsumption"] != null ? (float)expectedUsage["fuelConsumption"] : 0;
-                                double fuelFractionPerLap = expectedUsage["fuelFractionPerLap"] != null ? (double)expectedUsage["fuelFractionPerLap"] : 0;
-                                double virtualEnergyFractionPerLap = expectedUsage["virtualEnergyFractionPerLap"] != null ? (double)expectedUsage["virtualEnergyFractionPerLap"] : 0;
-
-                                LMURepairAndRefuelData.fuelConsumption = (float)Math.Round(fuelConsumption, 2);
-                                LMURepairAndRefuelData.fuelFractionPerLap = (double)Math.Round((fuelFractionPerLap * 100), 4);
-                                LMURepairAndRefuelData.virtualEnergyFractionPerLap = (double)Math.Round((virtualEnergyFractionPerLap * 100), 4);
-                            }
-                            // End Fuel & Energy
-
-                            JObject pitMenu = JObject.Parse(TireManagementJSONdata["pitMenu"].ToString());
-
-                            // Start New Repair Damage
-                            {
-                                JToken repairdamage = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 1);
-
-                                //LMURepairAndRefuelData.RepairDamage = repairdamage["currentSetting"] != null ? (string)repairdamage["currentSetting"] : "0";
-
-                                LMURepairAndRefuelData.RepairDamage = repairdamage["currentSetting"] != null ? (int)repairdamage["currentSetting"] == 0 ? "No" : (int)repairdamage["currentSetting"] == 1 ? "Yes" : $"{(int)repairdamage["currentSetting"]}" : "Unknown";
-
-                            }
-                        
-                            // Start Pit Menu Energy
-                            {
-                                JToken pitmvirtualenergy = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 5);
-
-                                LMURepairAndRefuelData.PitMVirtualEnergy = pitmvirtualenergy["currentSetting"] != null ? ((int)pitmvirtualenergy["currentSetting"]) : 0;
-                            }
-                            // Start Pit Menu Energy
-
-                            // Start New Fuel ratio
-                            {
-                                JToken fuelratio = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 6);
-
-                                LMURepairAndRefuelData.FuelRatio = fuelratio["currentSetting"] != null ? (((double)fuelratio["currentSetting"] + 5) / 100.0) : 1.0;
-                            }
-
-                            // Start New Wing
-                            {
-                                JToken wing = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 19);
-                            
-                                LMURepairAndRefuelData.Wing = wing["currentSetting"] != null ? $"P{(int)wing["currentSetting"]+1}" : "Unknown";
-                            }
-
-                            // End New Wing
-
-                            // Start New Grille
-                            {
-                                JToken grille = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 21);
-
-                                LMURepairAndRefuelData.Grille = grille["currentSetting"] != null ? $"{(int)grille["currentSetting"] + 1}" : "Unknown";
-
-                            }
-
-                            // Start PMC FL Pressure
-                            {
-                                JToken flpressure = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 24);
-
-                                LMURepairAndRefuelData.fl_Tyre_NewPressure_kPa = flpressure["currentSetting"] != null ? $"{(int)flpressure["currentSetting"] + 135}" : "Unknown";
-                                LMURepairAndRefuelData.fl_Tyre_NewPressure_Bar = flpressure["currentSetting"] != null ? $"{(((double)flpressure["currentSetting"] + 135) / 100):F2}" : "Unknown";
-                                LMURepairAndRefuelData.fl_Tyre_NewPressure_Psi = flpressure["currentSetting"] != null ? $"{(((double)flpressure["currentSetting"] + 135) * 0.14503773773020923):F2}" : "Unknown";
-
-                            }
-                            // End PMC FL Pressure
-
-                            // Start PMC FR Pressure
-                            {
-                                JToken frpressure = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 25);
-
-                                LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa = frpressure["currentSetting"] != null ? $"{(int)frpressure["currentSetting"] + 135}" : "Unknown";
-                                LMURepairAndRefuelData.fr_Tyre_NewPressure_Bar = frpressure["currentSetting"] != null ? $"{(((double)frpressure["currentSetting"] + 135) / 100):F2}" : "Unknown";
-                                LMURepairAndRefuelData.fr_Tyre_NewPressure_Psi = frpressure["currentSetting"] != null ? $"{(((double)frpressure["currentSetting"] + 135) * 0.14503773773020923):F2}" : "Unknown";
-                            }
-                            // End PMC FR Pressure
-
-                            // Start PMC RL Pressure
-                            {
-                                JToken rlpressure = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 26);
-
-                                LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa = rlpressure["currentSetting"] != null ? $"{(int)rlpressure["currentSetting"] + 135}" : "Unknown";
-                                LMURepairAndRefuelData.rl_Tyre_NewPressure_Bar = rlpressure["currentSetting"] != null ? $"{(((double)rlpressure["currentSetting"] + 135) / 100):F2}" : "Unknown";
-                                LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi = rlpressure["currentSetting"] != null ? $"{(((double)rlpressure["currentSetting"] + 135) * 0.14503773773020923):F2}" : "Unknown";
-                            }
-                            // End PMC RL Pressure
-
-                            // Start PMC RR Pressure
-                            {
-                                JToken rrpressure = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 27);
-
-                                LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa = rrpressure["currentSetting"] != null ? $"{(int)rrpressure["currentSetting"] + 135}" : "Unknown";
-                                LMURepairAndRefuelData.rr_Tyre_NewPressure_Bar = rrpressure["currentSetting"] != null ? $"{(((double)rrpressure["currentSetting"] + 135) / 100):F2}" : "Unknown";
-                                LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi = rrpressure["currentSetting"] != null ? $"{(((double)rrpressure["currentSetting"] + 135) * 0.14503773773020923):F2}" : "Unknown";
-                            }
-                            // End PMC RR Pressure
-
-                            // End New Grille
-
-                            // Start New Replace Brake
-                            {
-                                JToken replaceBrakes = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 32);
-
-                                LMURepairAndRefuelData.replaceBrakes = replaceBrakes["currentSetting"] != null ? (int)replaceBrakes["currentSetting"] == 0 ? "No" : (int)replaceBrakes["currentSetting"] == 1 ? "Yes" : $"{(int)replaceBrakes["currentSetting"]}" : "Unknown";
-                            }
-                            // End New Replace Brake
-
-                            // Start New datas for each tyre
-                            {
-
-                                var selectedDatas = TireManagementJSONdata["wheelInfo"]["wheelLocs"].ToList();
-
-                                if (selectedDatas != null)
-                                {
-                                    // Start Compound
-                                    if (LMURepairAndRefuelData.trackName == "Circuit de la Sarthe" || LMURepairAndRefuelData.trackName == "Circuit de Spa-Francorchamps")
+                                    if (RepairDamageText != null)
                                     {
+                                        string rawText = RepairDamageText?.ToString() ?? "Unknown";
 
-                                        LMURepairAndRefuelData.fl_TyreCompound_Name = selectedDatas[0]["compound"] != null ? (int)selectedDatas[0]["compound"] == 0 ? "Soft" : (int)selectedDatas[0]["compound"] == 1 ? "Medium" : (int)selectedDatas[0]["compound"] == 2 ? "Hard" : (int)selectedDatas[0]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[0]["compound"]}" : "0";
-                                        LMURepairAndRefuelData.fr_TyreCompound_Name = selectedDatas[1]["compound"] != null ? (int)selectedDatas[1]["compound"] == 0 ? "Soft" : (int)selectedDatas[1]["compound"] == 1 ? "Medium" : (int)selectedDatas[1]["compound"] == 2 ? "Hard" : (int)selectedDatas[1]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[1]["compound"]}" : "0";
-                                        LMURepairAndRefuelData.rl_TyreCompound_Name = selectedDatas[2]["compound"] != null ? (int)selectedDatas[2]["compound"] == 0 ? "Soft" : (int)selectedDatas[2]["compound"] == 1 ? "Medium" : (int)selectedDatas[2]["compound"] == 2 ? "Hard" : (int)selectedDatas[2]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[2]["compound"]}" : "0";
-                                        LMURepairAndRefuelData.rr_TyreCompound_Name = selectedDatas[3]["compound"] != null ? (int)selectedDatas[3]["compound"] == 0 ? "Soft" : (int)selectedDatas[3]["compound"] == 1 ? "Medium" : (int)selectedDatas[3]["compound"] == 2 ? "Hard" : (int)selectedDatas[3]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[3]["compound"]}" : "0";
+                                        byte[] utf8Bytes = Encoding.Default.GetBytes(rawText);
+                                        string utf8Text = Encoding.UTF8.GetString(utf8Bytes);
 
+                                        LMURepairAndRefuelData.RepairDamage = utf8Text.Normalize(NormalizationForm.FormC);
                                     }
-
                                     else
                                     {
-                                        LMURepairAndRefuelData.fl_TyreCompound_Name = selectedDatas[0]["compound"] != null ? (int)selectedDatas[0]["compound"] == 0 ? "Medium" : (int)selectedDatas[0]["compound"] == 1 ? "Hard" : (int)selectedDatas[0]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[0]["compound"]}" : "0";
-                                        LMURepairAndRefuelData.fr_TyreCompound_Name = selectedDatas[1]["compound"] != null ? (int)selectedDatas[1]["compound"] == 0 ? "Medium" : (int)selectedDatas[1]["compound"] == 1 ? "Hard" : (int)selectedDatas[1]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[1]["compound"]}" : "0";
-                                        LMURepairAndRefuelData.rl_TyreCompound_Name = selectedDatas[2]["compound"] != null ? (int)selectedDatas[2]["compound"] == 0 ? "Medium" : (int)selectedDatas[2]["compound"] == 1 ? "Hard" : (int)selectedDatas[2]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[2]["compound"]}" : "0";
-                                        LMURepairAndRefuelData.rr_TyreCompound_Name = selectedDatas[3]["compound"] != null ? (int)selectedDatas[3]["compound"] == 0 ? "Medium" : (int)selectedDatas[3]["compound"] == 1 ? "Hard" : (int)selectedDatas[3]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[3]["compound"]}" : "0";
+                                        LMURepairAndRefuelData.RepairDamage = "Unknown";
                                     }
-                                    // End Compound
 
-                                    // Start New Tyre Change
-                                    var fl_tirechange = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 12); // Front Left Tyre
-                                    var fr_tirechange = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 13); // Front Right Tyre
-                                    var rl_tirechange = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 14); // Rear Left Tyre
-                                    var rr_tirechange = pitMenu["pitMenu"]?.FirstOrDefault(item => (int)item["PMC Value"] == 15); // Rear Right Tyre
+                                }
 
-                                    if (fl_tirechange != null || fr_tirechange != null || rl_tirechange != null || rr_tirechange != null)
+                                // Start Pit Menu
+                                {                                    
+                                    LMURepairAndRefuelData.PitMVirtualEnergy = GetPMCValue(pitMenuJSONData, 5, "Unknown");
+                                    LMURepairAndRefuelData.PitMVirtualEnergy_Text = GetPMCText(pitMenuJSONData, 5, "Unknown");
+                                    LMURepairAndRefuelData.FuelRatio = GetPMCText(pitMenuJSONData, 6, "1.0");
+                                    LMURepairAndRefuelData.Wing = GetPMCText(pitMenuJSONData, 19, "0");
+                                    LMURepairAndRefuelData.Grille = GetPMCText(pitMenuJSONData, 21, "Unknown");
+                                    LMURepairAndRefuelData.replaceBrakes = GetPMCText(pitMenuJSONData, 32, "Unknown");
+                                    LMURepairAndRefuelData.fl_Tyre_NewPressure_kPa_Text = GetPMCText(pitMenuJSONData, 24, "Unknown");
+                                    LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa_Text = GetPMCText(pitMenuJSONData, 25, "Unknown");
+                                    LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa_Text = GetPMCText(pitMenuJSONData, 26, "Unknown");
+                                    LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa_Text = GetPMCText(pitMenuJSONData, 27, "Unknown");
+                                }
+
+                                // Start PMC FL Pressure
+                                {
+                                    SetTyrePressureData(pitMenuJSONData, 24, out string flPressure_kPa, out string flPressure_Bar, out string flPressure_Psi);
+                                    LMURepairAndRefuelData.fl_Tyre_NewPressure_kPa = flPressure_kPa;
+                                    LMURepairAndRefuelData.fl_Tyre_NewPressure_Bar = flPressure_Bar;
+                                    LMURepairAndRefuelData.fl_Tyre_NewPressure_Psi = flPressure_Psi;
+                                }
+                                // End PMC FL Pressure
+
+                                // Start PMC FR Pressure
+                                {
+                                    SetTyrePressureData(pitMenuJSONData, 25, out string frPressure_kPa, out string frPressure_Bar, out string frPressure_Psi);
+                                    LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa = frPressure_kPa;
+                                    LMURepairAndRefuelData.fr_Tyre_NewPressure_Bar = frPressure_Bar;
+                                    LMURepairAndRefuelData.fr_Tyre_NewPressure_Psi = frPressure_Psi;
+                                }
+                                // End PMC FR Pressure
+
+                                // Start PMC RL Pressure
+                                {
+                                    SetTyrePressureData(pitMenuJSONData, 26, out string rlPressure_kPa, out string rlPressure_Bar, out string rlPressure_Psi);
+                                    LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa = rlPressure_kPa;
+                                    LMURepairAndRefuelData.rl_Tyre_NewPressure_Bar = rlPressure_Bar;
+                                    LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi = rlPressure_Psi;
+                                }
+                                // End PMC RL Pressure
+
+                                // Start PMC RR Pressure
+                                {
+                                    SetTyrePressureData(pitMenuJSONData, 27, out string rrPressure_kPa, out string rrPressure_Bar, out string rrPressure_Psi);
+                                    LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa = rrPressure_kPa;
+                                    LMURepairAndRefuelData.rr_Tyre_NewPressure_Bar = rrPressure_Bar;
+                                    LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi = rrPressure_Psi;
+                                }
+                                // End PMC RR Pressure
+                                // End Pit Menu
+
+                                // Start New datas for each tyre
+                                {
+                                    var selectedDatas = TireManagementJSONdata["wheelInfo"]["wheelLocs"].ToList();
+
                                     {
+                                        //Start Compound
                                         if (LMURepairAndRefuelData.trackName == "Circuit de la Sarthe" || LMURepairAndRefuelData.trackName == "Circuit de Spa-Francorchamps")
                                         {
-                                            LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange["currentSetting"] != null ? (int)fl_tirechange["currentSetting"] == 0 ? "No Change" : (int)fl_tirechange["currentSetting"] == 1 ? "New Soft" : (int)fl_tirechange["currentSetting"] == 2 ? "New Medium" : (int)fl_tirechange["currentSetting"] == 3 ? "New Hard" : (int)fl_tirechange["currentSetting"] == 4 ? "New Wet" : (int)fl_tirechange["currentSetting"] == 5 ? "Wear Soft" : (int)fl_tirechange["currentSetting"] == 6 ? "Wear Medium" : (int)fl_tirechange["currentSetting"] == 7 ? "Wear Hard" : (int)fl_tirechange["currentSetting"] == 8 ? "Wear Wet" : $"{(int)fl_tirechange["currentSetting"]}" : "Unknown";
-                                            LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange["currentSetting"] != null ? (int)fr_tirechange["currentSetting"] == 0 ? "No Change" : (int)fr_tirechange["currentSetting"] == 1 ? "New Soft" : (int)fr_tirechange["currentSetting"] == 2 ? "New Medium" : (int)fr_tirechange["currentSetting"] == 3 ? "New Hard" : (int)fr_tirechange["currentSetting"] == 4 ? "New Wet" : (int)fr_tirechange["currentSetting"] == 5 ? "Wear Soft" : (int)fr_tirechange["currentSetting"] == 6 ? "Wear Medium" : (int)fr_tirechange["currentSetting"] == 7 ? "Wear Hard" : (int)fr_tirechange["currentSetting"] == 8 ? "Wear Wet" : $"{(int)fr_tirechange["currentSetting"]}" : "Unknown";
-                                            LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange["currentSetting"] != null ? (int)rl_tirechange["currentSetting"] == 0 ? "No Change" : (int)rl_tirechange["currentSetting"] == 1 ? "New Soft" : (int)rl_tirechange["currentSetting"] == 2 ? "New Medium" : (int)rl_tirechange["currentSetting"] == 3 ? "New Hard" : (int)rl_tirechange["currentSetting"] == 4 ? "New Wet" : (int)rl_tirechange["currentSetting"] == 5 ? "Wear Soft" : (int)rl_tirechange["currentSetting"] == 6 ? "Wear Medium" : (int)rl_tirechange["currentSetting"] == 7 ? "Wear Hard" : (int)rl_tirechange["currentSetting"] == 8 ? "Wear Wet" : $"{(int)rl_tirechange["currentSetting"]}" : "Unknown";
-                                            LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange["currentSetting"] != null ? (int)rr_tirechange["currentSetting"] == 0 ? "No Change" : (int)rr_tirechange["currentSetting"] == 1 ? "New Soft" : (int)rr_tirechange["currentSetting"] == 2 ? "New Medium" : (int)rr_tirechange["currentSetting"] == 3 ? "New Hard" : (int)rr_tirechange["currentSetting"] == 4 ? "New Wet" : (int)rr_tirechange["currentSetting"] == 5 ? "Wear Soft" : (int)rr_tirechange["currentSetting"] == 6 ? "Wear Medium" : (int)rr_tirechange["currentSetting"] == 7 ? "Wear Hard" : (int)rr_tirechange["currentSetting"] == 8 ? "Wear Wet" : $"{(int)rr_tirechange["currentSetting"]}" : "Unknown";
+
+                                            LMURepairAndRefuelData.fl_TyreCompound_Name = selectedDatas[0]["compound"] != null ? (int)selectedDatas[0]["compound"] == 0 ? "Soft" : (int)selectedDatas[0]["compound"] == 1 ? "Medium" : (int)selectedDatas[0]["compound"] == 2 ? "Hard" : (int)selectedDatas[0]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[0]["compound"]}" : "0";
+                                            LMURepairAndRefuelData.fr_TyreCompound_Name = selectedDatas[1]["compound"] != null ? (int)selectedDatas[1]["compound"] == 0 ? "Soft" : (int)selectedDatas[1]["compound"] == 1 ? "Medium" : (int)selectedDatas[1]["compound"] == 2 ? "Hard" : (int)selectedDatas[1]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[1]["compound"]}" : "0";
+                                            LMURepairAndRefuelData.rl_TyreCompound_Name = selectedDatas[2]["compound"] != null ? (int)selectedDatas[2]["compound"] == 0 ? "Soft" : (int)selectedDatas[2]["compound"] == 1 ? "Medium" : (int)selectedDatas[2]["compound"] == 2 ? "Hard" : (int)selectedDatas[2]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[2]["compound"]}" : "0";
+                                            LMURepairAndRefuelData.rr_TyreCompound_Name = selectedDatas[3]["compound"] != null ? (int)selectedDatas[3]["compound"] == 0 ? "Soft" : (int)selectedDatas[3]["compound"] == 1 ? "Medium" : (int)selectedDatas[3]["compound"] == 2 ? "Hard" : (int)selectedDatas[3]["compound"] == 3 ? "Wet" : $"{(int)selectedDatas[3]["compound"]}" : "0";
+
                                         }
+
                                         else
                                         {
-                                            LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange["currentSetting"] != null ? (int)fl_tirechange["currentSetting"] == 0 ? "No Change" : (int)fl_tirechange["currentSetting"] == 1 ? "New Medium" : (int)fl_tirechange["currentSetting"] == 2 ? "New Hard" : (int)fl_tirechange["currentSetting"] == 3 ? "New Wet" : (int)fl_tirechange["currentSetting"] == 5 ? "Wear Medium" : (int)fl_tirechange["currentSetting"] == 6 ? "Wear Hard" : (int)fl_tirechange["currentSetting"] == 7 ? "Wear Wet" : $"{(int)fl_tirechange["currentSetting"]}" : "Unknown";
-                                            LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange["currentSetting"] != null ? (int)fr_tirechange["currentSetting"] == 0 ? "No Change" : (int)fr_tirechange["currentSetting"] == 1 ? "New Medium" : (int)fr_tirechange["currentSetting"] == 2 ? "New Hard" : (int)fr_tirechange["currentSetting"] == 3 ? "New Wet" : (int)fr_tirechange["currentSetting"] == 5 ? "Wear Medium" : (int)fr_tirechange["currentSetting"] == 6 ? "Wear Hard" : (int)fr_tirechange["currentSetting"] == 7 ? "Wear Wet" : $"{(int)fr_tirechange["currentSetting"]}" : "Unknown";
-                                            LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange["currentSetting"] != null ? (int)rl_tirechange["currentSetting"] == 0 ? "No Change" : (int)rl_tirechange["currentSetting"] == 1 ? "New Medium" : (int)rl_tirechange["currentSetting"] == 2 ? "New Hard" : (int)rl_tirechange["currentSetting"] == 3 ? "New Wet" : (int)rl_tirechange["currentSetting"] == 5 ? "Wear Medium" : (int)rl_tirechange["currentSetting"] == 6 ? "Wear Hard" : (int)rl_tirechange["currentSetting"] == 7 ? "Wear Wet" : $"{(int)rl_tirechange["currentSetting"]}" : "Unknown";
-                                            LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange["currentSetting"] != null ? (int)rr_tirechange["currentSetting"] == 0 ? "No Change" : (int)rr_tirechange["currentSetting"] == 1 ? "New Medium" : (int)rr_tirechange["currentSetting"] == 2 ? "New Hard" : (int)rr_tirechange["currentSetting"] == 3 ? "New Wet" : (int)rr_tirechange["currentSetting"] == 5 ? "Wear Medium" : (int)rr_tirechange["currentSetting"] == 6 ? "Wear Hard" : (int)rr_tirechange["currentSetting"] == 7 ? "Wear Wet" : $"{(int)rr_tirechange["currentSetting"]}" : "Unknown";
-
+                                            LMURepairAndRefuelData.fl_TyreCompound_Name = selectedDatas[0]["compound"] != null ? (int)selectedDatas[0]["compound"] == 0 ? "Medium" : (int)selectedDatas[0]["compound"] == 1 ? "Hard" : (int)selectedDatas[0]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[0]["compound"]}" : "0";
+                                            LMURepairAndRefuelData.fr_TyreCompound_Name = selectedDatas[1]["compound"] != null ? (int)selectedDatas[1]["compound"] == 0 ? "Medium" : (int)selectedDatas[1]["compound"] == 1 ? "Hard" : (int)selectedDatas[1]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[1]["compound"]}" : "0";
+                                            LMURepairAndRefuelData.rl_TyreCompound_Name = selectedDatas[2]["compound"] != null ? (int)selectedDatas[2]["compound"] == 0 ? "Medium" : (int)selectedDatas[2]["compound"] == 1 ? "Hard" : (int)selectedDatas[2]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[2]["compound"]}" : "0";
+                                            LMURepairAndRefuelData.rr_TyreCompound_Name = selectedDatas[3]["compound"] != null ? (int)selectedDatas[3]["compound"] == 0 ? "Medium" : (int)selectedDatas[3]["compound"] == 1 ? "Hard" : (int)selectedDatas[3]["compound"] == 2 ? "Wet" : $"{(int)selectedDatas[3]["compound"]}" : "0";
                                         }
-                                    }    // End New Tyre Change
 
-                                    // Start New Tyre Pressure, Temperature and Brake Temperature
+                                        // End Compound
 
-                                    LMURepairAndRefuelData.fl_TyrePressure = selectedDatas[0]["tirePressure"] != null ? $"{((int)selectedDatas[0]["tirePressure"])}" : "0"; // Front Left Tyre
-                                    LMURepairAndRefuelData.fr_TyrePressure = selectedDatas[1]["tirePressure"] != null ? $"{((int)selectedDatas[1]["tirePressure"])}" : "0"; // Front Right Tyre
-                                    LMURepairAndRefuelData.rl_TyrePressure = selectedDatas[2]["tirePressure"] != null ? $"{((int)selectedDatas[2]["tirePressure"])}" : "0"; // Rear Left Tyre
-                                    LMURepairAndRefuelData.rr_TyrePressure = selectedDatas[3]["tirePressure"] != null ? $"{((int)selectedDatas[3]["tirePressure"])}" : "0"; // Rear Right Tyre
-                                    LMURepairAndRefuelData.fl_TyrePressure_Bar = selectedDatas[0]["tirePressure"] != null ? $"{((double)selectedDatas[0]["tirePressure"] / 100):F2}" : "0.0"; // Front Left Tyre
-                                    LMURepairAndRefuelData.fr_TyrePressure_Bar = selectedDatas[1]["tirePressure"] != null ? $"{((double)selectedDatas[1]["tirePressure"] / 100):F2}" : "0.0"; // Front Right Tyre
-                                    LMURepairAndRefuelData.rl_TyrePressure_Bar = selectedDatas[2]["tirePressure"] != null ? $"{((double)selectedDatas[2]["tirePressure"] / 100):F2}" : "0.0"; // Rear Left Tyre
-                                    LMURepairAndRefuelData.rr_TyrePressure_Bar = selectedDatas[3]["tirePressure"] != null ? $"{((double)selectedDatas[3]["tirePressure"] / 100):F2}" : "0.0"; // Rear Right Tyre
-                                    LMURepairAndRefuelData.fl_TyrePressure_Psi = selectedDatas[0]["tirePressure"] != null ? $"{((double)selectedDatas[0]["tirePressure"] * 0.14503773773020923):F2}" : "0.0"; // Front Left Tyre
-                                    LMURepairAndRefuelData.fr_TyrePressure_Psi = selectedDatas[1]["tirePressure"] != null ? $"{((double)selectedDatas[1]["tirePressure"] * 0.14503773773020923):F2}" : "0.0"; // Front Right Tyre
-                                    LMURepairAndRefuelData.rl_TyrePressure_Psi = selectedDatas[2]["tirePressure"] != null ? $"{((double)selectedDatas[2]["tirePressure"] * 0.14503773773020923):F2}" : "0.0"; // Rear Left Tyre
-                                    LMURepairAndRefuelData.rr_TyrePressure_Psi = selectedDatas[3]["tirePressure"] != null ? $"{((double)selectedDatas[3]["tirePressure"] * 0.14503773773020923):F2}" : "0.0"; // Rear Right Tyre
-                                    LMURepairAndRefuelData.fl_TyreTemp = selectedDatas[0]["tireTemp"] != null ? $"{((double)selectedDatas[0]["tireTemp"] - 273.15):F1}" : "0.0"; // Front Left Tyre
-                                    LMURepairAndRefuelData.fr_TyreTemp = selectedDatas[1]["tireTemp"] != null ? $"{((double)selectedDatas[1]["tireTemp"] - 273.15):F1}" : "0.0"; // Front Right Tyre
-                                    LMURepairAndRefuelData.rl_TyreTemp = selectedDatas[2]["tireTemp"] != null ? $"{((double)selectedDatas[2]["tireTemp"] - 273.15):F1}" : "0.0"; // Rear Left Tyre
-                                    LMURepairAndRefuelData.rr_TyreTemp = selectedDatas[3]["tireTemp"] != null ? $"{((double)selectedDatas[3]["tireTemp"] - 273.15):F1}" : "0.0"; // Rear Right Tyre
-                                    LMURepairAndRefuelData.fl_BrakeTemp = selectedDatas[0]["brakeTemp"] != null ? $"{((double)selectedDatas[0]["tireTemp"] - 273.15):F1}" : "0.0"; // Front Left Tyre
-                                    LMURepairAndRefuelData.fr_BrakeTemp = selectedDatas[1]["brakeTemp"] != null ? $"{((double)selectedDatas[1]["tireTemp"] - 273.15):F1}" : "0.0"; // Front Right Tyre
-                                    LMURepairAndRefuelData.rl_BrakeTemp = selectedDatas[2]["brakeTemp"] != null ? $"{((double)selectedDatas[2]["tireTemp"] - 273.15):F1}" : "0.0"; // Rear Left Tyre
-                                    LMURepairAndRefuelData.rr_BrakeTemp = selectedDatas[3]["brakeTemp"] != null ? $"{((double)selectedDatas[3]["tireTemp"] - 273.15):F1}" : "0.0"; // Rear Right Tyre
+                                        // Start New Tyre Change
+                                        {
+                                            var fl_tirechange = GetPMCValue(pitMenuJSONData, 12, "Unknown");
+                                            var fr_tirechange = GetPMCValue(pitMenuJSONData, 13, "Unknown");
+                                            var rl_tirechange = GetPMCValue(pitMenuJSONData, 14, "Unknown");
+                                            var rr_tirechange = GetPMCValue(pitMenuJSONData, 15, "Unknown");
+
+                                            if (LMURepairAndRefuelData.trackName == "Circuit de la Sarthe" || LMURepairAndRefuelData.trackName == "Circuit de Spa-Francorchamps")
+                                            {
+                                                LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange != null ? (string)fl_tirechange == "0" ? "No Change" : (string)fl_tirechange == "1" ? "New Soft" : (string)fl_tirechange == "2" ? "New Medium" : (string)fl_tirechange == "3" ? "New Hard" : (string)fl_tirechange == "4" ? "New Wet" : (string)fl_tirechange == "5" ? "Use Soft" : (string)fl_tirechange == "6" ? "Use Medium" : (string)fl_tirechange == "7" ? "Use Hard" : (string)fl_tirechange == "8" ? "Use Wet" : $"{(string)fl_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange != null ? (string)fr_tirechange == "0" ? "No Change" : (string)fr_tirechange == "1" ? "New Soft" : (string)fr_tirechange == "2" ? "New Medium" : (string)fr_tirechange == "3" ? "New Hard" : (string)fr_tirechange == "4" ? "New Wet" : (string)fr_tirechange == "5" ? "Use Soft" : (string)fr_tirechange == "6" ? "Use Medium" : (string)fr_tirechange == "7" ? "Use Hard" : (string)fr_tirechange == "8" ? "Use Wet" : $"{(string)fr_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange != null ? (string)rl_tirechange == "0" ? "No Change" : (string)rl_tirechange == "1" ? "New Soft" : (string)rl_tirechange == "2" ? "New Medium" : (string)rl_tirechange == "3" ? "New Hard" : (string)rl_tirechange == "4" ? "New Wet" : (string)rl_tirechange == "5" ? "Use Soft" : (string)rl_tirechange == "6" ? "Use Medium" : (string)rl_tirechange == "7" ? "Use Hard" : (string)rl_tirechange == "8" ? "Use Wet" : $"{(string)rl_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange != null ? (string)rr_tirechange == "0" ? "No Change" : (string)rr_tirechange == "1" ? "New Soft" : (string)rr_tirechange == "2" ? "New Medium" : (string)rr_tirechange == "3" ? "New Hard" : (string)rr_tirechange == "4" ? "New Wet" : (string)rr_tirechange == "5" ? "Use Soft" : (string)rr_tirechange == "6" ? "Use Medium" : (string)rr_tirechange == "7" ? "Use Hard" : (string)rr_tirechange == "8" ? "Use Wet" : $"{(string)rr_tirechange}" : "Unknown";
+                                            }
+                                            else
+                                            {
+                                                LMURepairAndRefuelData.fl_TyreChange_Name = fl_tirechange != null ? (string)fl_tirechange == "0" ? "No Change" : (string)fl_tirechange == "1" ? "New Medium" : (string)fl_tirechange == "2" ? "New Hard" : (string)fl_tirechange == "3" ? "New Wet" : (string)fl_tirechange == "4" ? "Use Medium" : (string)fl_tirechange == "5" ? "Use Hard" : (string)fl_tirechange == "6" ? "Use Wet" : $"{(string)fl_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.fr_TyreChange_Name = fr_tirechange != null ? (string)fr_tirechange == "0" ? "No Change" : (string)fr_tirechange == "1" ? "New Medium" : (string)fr_tirechange == "2" ? "New Hard" : (string)fr_tirechange == "3" ? "New Wet" : (string)fr_tirechange == "4" ? "Use Medium" : (string)fr_tirechange == "5" ? "Use Hard" : (string)fr_tirechange == "6" ? "Use Wet" : $"{(string)fr_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.rl_TyreChange_Name = rl_tirechange != null ? (string)rl_tirechange == "0" ? "No Change" : (string)rl_tirechange == "1" ? "New Medium" : (string)rl_tirechange == "2" ? "New Hard" : (string)rl_tirechange == "3" ? "New Wet" : (string)rl_tirechange == "4" ? "Use Medium" : (string)rl_tirechange == "5" ? "Use Hard" : (string)rl_tirechange == "6" ? "Use Wet" : $"{(string)rl_tirechange}" : "Unknown";
+                                                LMURepairAndRefuelData.rr_TyreChange_Name = rr_tirechange != null ? (string)rr_tirechange == "0" ? "No Change" : (string)rr_tirechange == "1" ? "New Medium" : (string)rr_tirechange == "2" ? "New Hard" : (string)rr_tirechange == "3" ? "New Wet" : (string)rr_tirechange == "4" ? "Use Medium" : (string)rr_tirechange == "5" ? "Use Hard" : (string)rr_tirechange == "6" ? "Use Wet" : $"{(string)rr_tirechange}" : "Unknown";
+                                            }
+                                        }    // End New Tyre Change
+
+                                        // Start Tyre Pressure, Temperature and Brake Temperature
+                                        {
+                                            var fltyrepressure = (double)selectedDatas[0]["tirePressure"];
+                                            var frtyrepressure = (double)selectedDatas[1]["tirePressure"];
+                                            var rltyrepressure = (double)selectedDatas[2]["tirePressure"];
+                                            var rrtyrepressure = (double)selectedDatas[3]["tirePressure"];
+
+                                            LMURepairAndRefuelData.fl_TyrePressure = $"{((double)fltyrepressure):F0}";
+                                            LMURepairAndRefuelData.fr_TyrePressure = $"{((double)frtyrepressure):F0}";
+                                            LMURepairAndRefuelData.rl_TyrePressure = $"{((double)rltyrepressure):F0}";
+                                            LMURepairAndRefuelData.rr_TyrePressure = $"{((double)rrtyrepressure):F0}";
+
+                                            LMURepairAndRefuelData.fl_TyrePressure_Bar = $"{((double)fltyrepressure / 100):F2}";
+                                            LMURepairAndRefuelData.fr_TyrePressure_Bar = $"{((double)frtyrepressure / 100):F2}";
+                                            LMURepairAndRefuelData.rl_TyrePressure_Bar = $"{((double)rltyrepressure / 100):F2}";
+                                            LMURepairAndRefuelData.rr_TyrePressure_Bar = $"{((double)rrtyrepressure / 100):F2}";
+
+                                            LMURepairAndRefuelData.fl_TyrePressure_Psi = $"{((double)fltyrepressure * 0.14503773773020923):F2}";
+                                            LMURepairAndRefuelData.fr_TyrePressure_Psi = $"{((double)frtyrepressure * 0.14503773773020923):F2}";
+                                            LMURepairAndRefuelData.rl_TyrePressure_Psi = $"{((double)rltyrepressure * 0.14503773773020923):F2}";
+                                            LMURepairAndRefuelData.rr_TyrePressure_Psi = $"{((double)rrtyrepressure * 0.14503773773020923):F2}";
+
+                                            LMURepairAndRefuelData.fl_TyreTemp = $"{((double)selectedDatas[0]["tireTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.fr_TyreTemp = $"{((double)selectedDatas[1]["tireTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rl_TyreTemp = $"{((double)selectedDatas[2]["tireTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rr_TyreTemp = $"{((double)selectedDatas[3]["tireTemp"] - 273.15):F1}";
+
+                                            LMURepairAndRefuelData.fl_BrakeTemp = $"{((double)selectedDatas[0]["brakeTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.fr_BrakeTemp = $"{((double)selectedDatas[1]["brakeTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rl_BrakeTemp = $"{((double)selectedDatas[2]["brakeTemp"] - 273.15):F1}";
+                                            LMURepairAndRefuelData.rr_BrakeTemp = $"{((double)selectedDatas[3]["brakeTemp"] - 273.15):F1}";
+                                        }
+
+                                    }
                                 }
-                            }
-                            // End New Tyre Pressure, Temperature and Brake Temperature
+                                // End Tyre Pressure, Temperature and Brake Temperature
 
-                            // End New datas for each tyre
+                                // End New datas for each tyre
 
-                            // Start Track & Team infos
-                            {
-                                JObject trackInfo = JObject.Parse(RaceHistoryJSONdata["trackInfo"].ToString());
-
-                                //LMURepairAndRefuelData.grandPrixName = trackInfo["grandPrixName"]?.ToString();
-                                LMURepairAndRefuelData.grandPrixName = trackInfo["grandPrixName"] != null ? (string)trackInfo["grandPrixName"] : "Unknown";
-                                LMURepairAndRefuelData.location = trackInfo["location"] != null ? (string)trackInfo["location"] : "Unknown";
-                                LMURepairAndRefuelData.openingYear = trackInfo["openingYear"] != null ? (string)trackInfo["openingYear"] : "Unknown";
-                                LMURepairAndRefuelData.trackLength = trackInfo["trackLength"] != null ? $"{trackInfo["trackLength"]} Kms" : "Unknown";
-                                LMURepairAndRefuelData.trackName = trackInfo["trackName"] != null ? (string)trackInfo["trackName"] : "Unknown";
-
-                                LMURepairAndRefuelData.Driver = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["driverName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["driverName"] : "Unknown";
-                                LMURepairAndRefuelData.teamName = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["teamName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["teamName"] : "Unknown";
-                                LMURepairAndRefuelData.vehicleName = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["vehicleName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["vehicleName"] : "Unknown";
-                            }
-                            // End Track & Team infos
-
-                            // Start Game infos
-                            {
-                                LMURepairAndRefuelData.MultiStintState = GameStateJSONdata["MultiStintState"] != null ? (string)GameStateJSONdata["MultiStintState"] : "Unknown";
-                                LMURepairAndRefuelData.PitEntryDist = GameStateJSONdata["PitEntryDist"] != null ? $"{((double)GameStateJSONdata["PitEntryDist"]):F2}" : "Unknown";
-                                LMURepairAndRefuelData.PitState = GameStateJSONdata["PitState"] != null ? (string)GameStateJSONdata["PitState"] : "Unknown";
-                                LMURepairAndRefuelData.isReplayActive = GameStateJSONdata["isReplayActive"] != null ? (string)GameStateJSONdata["isReplayActive"] : "Unknown";
-                                LMURepairAndRefuelData.raceFinished = GameStateJSONdata["raceFinished"] != null ? (string)GameStateJSONdata["raceFinished"] : "Unknown";
-
-                            }
-                            // End Game Infos
-
-                            // Start Weather Probability
-                            {
-                                JObject closeestWeatherNode = JObject.Parse(GameStateJSONdata["closeestWeatherNode"].ToString());
-
-                                LMURepairAndRefuelData.RainChance_Probability = closeestWeatherNode["RainChance"] != null ? $"{closeestWeatherNode["RainChance"]} %" : "Unknown";
-                                LMURepairAndRefuelData.Temperature_Probability = closeestWeatherNode["Temperature"] != null ? $"{closeestWeatherNode["Temperature"]} °C" : "Unknown";
-
-                                var skyValue = GameStateJSONdata["closeestWeatherNode"]?["Sky"] != null ? (int)GameStateJSONdata["closeestWeatherNode"]?["Sky"] : 100;
-
-                                switch (skyValue)
+                                // Start Track & Team infos
                                 {
-                                    case 0:
-                                        LMURepairAndRefuelData.Sky_Probability = "Clear";
-                                        break;
-                                    case 1:
-                                        LMURepairAndRefuelData.Sky_Probability = "Light Clouds";
-                                        break;
-                                    case 2:
-                                        LMURepairAndRefuelData.Sky_Probability = "Partially Cloudy";
-                                        break;
-                                    case 3:
-                                        LMURepairAndRefuelData.Sky_Probability = "Mostly Cloudy";
-                                        break;
-                                    case 4:
-                                        LMURepairAndRefuelData.Sky_Probability = "Overcast";
-                                        break;
-                                    case 5:
-                                        LMURepairAndRefuelData.Sky_Probability = "Cloudy & Drizzle";
-                                        break;
-                                    case 6:
-                                        LMURepairAndRefuelData.Sky_Probability = "Cloudy & Light Rain";
-                                        break;
-                                    case 7:
-                                        LMURepairAndRefuelData.Sky_Probability = "Overcast & Light Rain";
-                                        break;
-                                    case 8:
-                                        LMURepairAndRefuelData.Sky_Probability = "Overcast & Rain";
-                                        break;
-                                    case 9:
-                                        LMURepairAndRefuelData.Sky_Probability = "Overcast & Heavy Rain";
-                                        break;
-                                    case 10:
-                                        LMURepairAndRefuelData.Sky_Probability = "Overcast & Storm";
-                                        break;
-                                    case 100:
-                                        LMURepairAndRefuelData.Sky_Probability = "Unknown";
-                                        break;
-                                    default:
-                                        // code block
-                                        break;
+                                    JObject trackInfo = JObject.Parse(RaceHistoryJSONdata["trackInfo"].ToString());
+
+                                    LMURepairAndRefuelData.grandPrixName = trackInfo["grandPrixName"] != null ? (string)trackInfo["grandPrixName"] : "Unknown";
+                                    LMURepairAndRefuelData.location = trackInfo["location"] != null ? (string)trackInfo["location"] : "Unknown";
+                                    LMURepairAndRefuelData.openingYear = trackInfo["openingYear"] != null ? (string)trackInfo["openingYear"] : "Unknown";
+                                    LMURepairAndRefuelData.trackLength = trackInfo["trackLength"] != null ? $"{(string)trackInfo["trackLength"]} Kms" : "Unknown";
+                                    LMURepairAndRefuelData.trackName = trackInfo["trackName"] != null ? (string)trackInfo["trackName"] : "Unknown";
+
+                                    LMURepairAndRefuelData.Driver = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["driverName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["driverName"] : "Unknown";
+                                    LMURepairAndRefuelData.teamName = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["teamName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["teamName"] : "Unknown";
+                                    LMURepairAndRefuelData.vehicleName = RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["vehicleName"] != null ? (string)RaceHistoryJSONdata["standings"]?["vehiclesInOrder"]?[0]?["vehicleName"] : "Unknown";
                                 }
+                                // End Track & Team infos
+
+                                // Start Game infos
+                                {
+                                    LMURepairAndRefuelData.MultiStintState = GameStateJSONdata["MultiStintState"] != null ? (string)GameStateJSONdata["MultiStintState"] : "Unknown";
+                                    LMURepairAndRefuelData.PitEntryDist = $"{((double)GameStateJSONdata["PitEntryDist"]):F2}";
+                                    LMURepairAndRefuelData.PitState = GameStateJSONdata["PitState"] != null ? (string)GameStateJSONdata["PitState"] : "Unknown";
+                                    LMURepairAndRefuelData.isReplayActive = GameStateJSONdata["isReplayActive"] != null ? (string)GameStateJSONdata["isReplayActive"] : "Unknown";
+                                    LMURepairAndRefuelData.raceFinished = GameStateJSONdata["raceFinished"] != null ? (string)GameStateJSONdata["raceFinished"] : "Unknown";
+
+                                }
+                                // End Game Infos
+
+                                //// Start Pit Recommendations
+                                //{
+                                //    JObject pitRecommendations = JObject.Parse(RepairAndRefuelJSONData["pitRecommendations"].ToString());
+
+                                //    LMURepairAndRefuelData.FL_TIRE = pitRecommendations["FL TIRE"] != null ? (int)pitRecommendations["FL TIRE"] : 0;
+                                //    LMURepairAndRefuelData.FR_TIRE = pitRecommendations["FR TIRE"] != null ? (int)pitRecommendations["FR TIRE"] : 0;
+                                //    LMURepairAndRefuelData.RL_TIRE = pitRecommendations["RL TIRE"] != null ? (int)pitRecommendations["RL TIRE"] : 0;
+                                //    LMURepairAndRefuelData.RR_TIRE = pitRecommendations["RR TIRE"] != null ? (int)pitRecommendations["RR TIRE"] : 0;
+                                //    LMURepairAndRefuelData.addVirtualEnergy = pitRecommendations["virtualEnergy"] != null ? $"{((double)pitRecommendations["virtualEnergy"]):F2}" : "0.0";
+                                //    LMURepairAndRefuelData.addFuel = pitRecommendations["fuel"] != null ? $"{((double)pitRecommendations["fuel"]):F2}" : "0.0";
+                                //}
+
+                                //// End Pit Recommendations
+
+                                // Start Actual Weather Infos
+                                {
+                                    JObject currentWeather = JObject.Parse(TireManagementJSONdata["currentWeather"].ToString());
+
+                                    LMURepairAndRefuelData.ambientTemp = $"{((double)currentWeather["ambientTempKelvin"] - 273.15):F1} °C";
+                                    LMURepairAndRefuelData.cloudCoverage = $"{((double)currentWeather["cloudCoverage"] * 100):F2} %";
+                                    LMURepairAndRefuelData.humidity = $"{((double)currentWeather["humidity"] * 100):F2} %";
+                                    LMURepairAndRefuelData.lightLevel = $"{((double)currentWeather["lightLevel"] * 100):F2} %";
+                                    LMURepairAndRefuelData.rainIntensity = $"{((double)currentWeather["rainIntensity"] * 100):F2} %";
+                                    LMURepairAndRefuelData.raining = $"{((double)currentWeather["raining"] * 100):F2} %";
+
+                                }
+
+                                // End Actual Weather Infos
+
+                                // Start Track Condition
+                                {
+                                    LMURepairAndRefuelData.trackTemp = RaceHistoryJSONdata["trackCondition"]?["trackTemp"] != null ? $"{((double)RaceHistoryJSONdata["trackCondition"]?["trackTemp"] - 273.15):F1} °C" : "Unknown";
+                                    var trackWetness = RaceHistoryJSONdata["trackCondition"]?["trackWetness"] != null ? (float)RaceHistoryJSONdata["trackCondition"]?["trackWetness"] * 100 : (float?)null;
+
+                                    LMURepairAndRefuelData.trackWetness = $"{((double)trackWetness):F2} %";
+
+                                    if (trackWetness <= 0.5)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Dry";
+                                    else if (trackWetness <= 7.5)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Damp";
+                                    else if (trackWetness <= 17.5)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Slightly wet";
+                                    else if (trackWetness <= 40)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Wet";
+                                    else if (trackWetness <= 70)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Very wet";
+                                    else if (trackWetness <= 100)
+                                        LMURepairAndRefuelData.trackWetness_Text = "Extremely wet";
+                                }
+                                // End Track Condition
                             }
-                            // End Weather Probability
-
-                            // Start Pit Recommendations
-                            {
-                                JObject pitRecommendations = JObject.Parse(RepairAndRefuelJSONDatas["pitRecommendations"].ToString());
-
-                                LMURepairAndRefuelData.FL_TIRE = pitRecommendations["FL TIRE"] != null ? (int)pitRecommendations["FL TIRE"] : 0;
-                                LMURepairAndRefuelData.FR_TIRE = pitRecommendations["FR TIRE"] != null ? (int)pitRecommendations["FR TIRE"] : 0;
-                                LMURepairAndRefuelData.RL_TIRE = pitRecommendations["RL TIRE"] != null ? (int)pitRecommendations["RL TIRE"] : 0;
-                                LMURepairAndRefuelData.RR_TIRE = pitRecommendations["RR TIRE"] != null ? (int)pitRecommendations["RR TIRE"] : 0;
-                                LMURepairAndRefuelData.addVirtualEnergy = pitRecommendations["virtualEnergy"] != null ? $"{((double)pitRecommendations["virtualEnergy"]):F2}" : "0.0";
-                                LMURepairAndRefuelData.addFuel = pitRecommendations["fuel"] != null ? $"{((double)pitRecommendations["fuel"]):F2}" : "0.0";
-                            }
-
-                            // End Pit Recommendations
-
-                            // Start Track Condition
-                            LMURepairAndRefuelData.trackTemp = RaceHistoryJSONdata["trackCondition"]?["trackTemp"] != null ? $"{((double)RaceHistoryJSONdata["trackCondition"]?["trackTemp"] -273.5):F1} °C" : "Unknown";
-                            LMURepairAndRefuelData.trackWetness = RaceHistoryJSONdata["trackCondition"]?["trackWetness"] != null ? $"{((double)RaceHistoryJSONdata["trackCondition"]?["trackWetness"]):F0} %" : "Unknown";
-
-                            // End Track Condition
 
                         }
-                        catch (WebException ex)
+                        catch (Exception ex)
                         {
-                            Logging.Current.Error($"LMU Redadeg plugin : Network error while accessing LMU Json Server");
-                        }
-                        catch (JsonException)
-                        {
-                            Logging.Current.Error($"LMU Redadeg plugin : JSON parsing error");
-                        }
-                        catch (Exception)
-                        {
-                            Logging.Current.Error($"LMU Redadeg plugin : Unexpected error");
+                            Logging.Current.Error($"LMU Redadeg plugin : Unexpected error" + ex.ToString());
                         }
                     }
                     // End New Datas 04-2025
@@ -850,11 +748,6 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Virtual_Energy", this.GetType(), LMURepairAndRefuelData.VirtualEnergy);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.pitStopLength", this.GetType(), LMURepairAndRefuelData.pitStopLength);
 
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.fl_TyreChange", this.GetType(), LMURepairAndRefuelData.fl_TyreChange);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.fr_TyreChange", this.GetType(), LMURepairAndRefuelData.fr_TyreChange);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.rl_TyreChange", this.GetType(), LMURepairAndRefuelData.rl_TyreChange);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.rr_TyreChange", this.GetType(), LMURepairAndRefuelData.rr_TyreChange);
-
                                 pluginManager.SetPropertyValue("Redadeg.lmu.maxBattery", this.GetType(), LMURepairAndRefuelData.maxBattery);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.maxFuel", this.GetType(), LMURepairAndRefuelData.maxFuel);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.maxVirtualEnergy", this.GetType(), LMURepairAndRefuelData.maxVirtualEnergy);
@@ -894,7 +787,7 @@ namespace Redadeg.lmuDataPlugin
                                 //pluginManager.SetPropertyValue("Redadeg.lmu.RealTimeClock", this.GetType(), ButtonBindSettings.RealTimeClock);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Extended.MotorMap", this.GetType(), LMURepairAndRefuelData.mpMotorMap);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.Extended.ChangedParamValue", this.GetType(), LMURepairAndRefuelData.mChangedParamValue);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.Extended.ChangedParamValue", this.GetType(), LMURepairAndRefuelData.mChangedParamValueU8);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Extended.ChangedParamType", this.GetType(), LMURepairAndRefuelData.mChangedParamType);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Extended.VM_ANTILOCKBRAKESYSTEMMAP", this.GetType(), LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP);
@@ -909,11 +802,6 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Extended.VM_TRACTIONCONTROLSLIPANGLEMAP", this.GetType(), LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Extended.VM_FRONT_ANTISWAY", this.GetType(), LMURepairAndRefuelData.VM_FRONT_ANTISWAY);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Extended.VM_REAR_ANTISWAY", this.GetType(), LMURepairAndRefuelData.VM_REAR_ANTISWAY);
-
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.fl_TyreCompound", this.GetType(), LMURepairAndRefuelData.fl_TyreCompound);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.fr_TyreCompound", this.GetType(), LMURepairAndRefuelData.fr_TyreCompound);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.rl_TyreCompound", this.GetType(), LMURepairAndRefuelData.rl_TyreCompound);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.rr_TyreCompound", this.GetType(), LMURepairAndRefuelData.rr_TyreCompound);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Tyre.fl_TyreCompound_Name", this.GetType(), LMURepairAndRefuelData.fl_TyreCompound_Name);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Tyre.fr_TyreCompound_Name", this.GetType(), LMURepairAndRefuelData.fr_TyreCompound_Name);
@@ -970,13 +858,20 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.GameInfos.RaceFinished", this.GetType(), LMURepairAndRefuelData.raceFinished);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.RainChance", this.GetType(), LMURepairAndRefuelData.rainChance);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.RainChance_Probability", this.GetType(), LMURepairAndRefuelData.RainChance_Probability);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Sky_Probability", this.GetType(), LMURepairAndRefuelData.Sky_Probability);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Temperature_Probability", this.GetType(), LMURepairAndRefuelData.Temperature_Probability);
+
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.AmbientTemp", this.GetType(), LMURepairAndRefuelData.ambientTemp);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.CloudCoverage", this.GetType(), LMURepairAndRefuelData.cloudCoverage);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.Humidity", this.GetType(), LMURepairAndRefuelData.humidity);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.LightLevel", this.GetType(), LMURepairAndRefuelData.lightLevel);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.RainIntensity", this.GetType(), LMURepairAndRefuelData.rainIntensity);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Current.Raining", this.GetType(), LMURepairAndRefuelData.raining);
+
                                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Temp", this.GetType(), LMURepairAndRefuelData.trackTemp);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Wetness", this.GetType(), LMURepairAndRefuelData.trackWetness);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Wetness_Text", this.GetType(), LMURepairAndRefuelData.trackWetness_Text);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Virtual_Energy", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Virtual_Energy_Text", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy_Text);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.FuelRatio", this.GetType(), LMURepairAndRefuelData.FuelRatio);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Grille", this.GetType(), LMURepairAndRefuelData.Grille);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Wing", this.GetType(), LMURepairAndRefuelData.Wing);
@@ -992,6 +887,10 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_kPa", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_kPa", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_kPa", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.fl_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.fl_Tyre_NewPressure_kPa_Text);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa_Text);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa_Text);
+                                pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa_Text);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.fl_Tyre_NewPressure_Bar", this.GetType(), LMURepairAndRefuelData.fl_Tyre_NewPressure_Bar);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_Bar", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_Bar);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Bar", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Bar);
@@ -1001,12 +900,12 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi);
 
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
-                                pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
+                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Energy.FuelConsumption_L", this.GetType(), LMURepairAndRefuelData.fuelConsumption);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Energy.FuelFractionPerLap_%", this.GetType(), LMURepairAndRefuelData.fuelFractionPerLap);
@@ -1027,11 +926,54 @@ namespace Redadeg.lmuDataPlugin
                 else
                 {
                     LMURepairAndRefuelData.mChangedParamType = -1;
-                    LMURepairAndRefuelData.mChangedParamValue = "";
+                    LMURepairAndRefuelData.mChangedParamValueU8 = "";
                 }
-
             }
         }
+        private string GetPMCValue(JArray pitMenuJSONData, int pmcValue, string defaultValue = "Unknown")
+        {
+            JToken item = pitMenuJSONData?.FirstOrDefault(x => (int?)x["PMC Value"] == pmcValue);
+
+            if (item != null && item["currentSetting"] != null)
+            {
+                string currentSetting = (string)item["currentSetting"];
+
+                return currentSetting;
+            }
+            return "Default";
+        }
+
+        private string GetPMCText(JArray pitMenuJSONData, int pmcValue, string defaultValue = "Unknown")
+        {
+            JToken item = pitMenuJSONData?.FirstOrDefault(x => (int?)x["PMC Value"] == pmcValue);
+
+            if (item != null && item["currentSetting"] != null)
+            {
+                int currentSetting = (int)item["currentSetting"];
+                JToken setting = item["settings"]?[currentSetting];
+
+                return setting?["text"]?.ToString() ?? defaultValue;
+            }
+            return defaultValue;
+        }
+
+        private void SetTyrePressureData(JArray pitMenuJSONData, int pmcValue, out string pressure_kPa, out string pressure_Bar, out string pressure_Psi)
+        {
+            string rawPressure = GetPMCValue(pitMenuJSONData, pmcValue, "Unknown");
+            if (int.TryParse(rawPressure, out int pressureValue))
+            {
+                pressure_kPa = (pressureValue + 135).ToString();
+                pressure_Bar = ((pressureValue + 135) / 100.0).ToString("F2");
+                pressure_Psi = ((pressureValue + 135) * 0.14503773773020923).ToString("F2");
+            }
+            else
+            {
+                pressure_kPa = "Unknown";
+                pressure_Bar = "Unknown";
+                pressure_Psi = "Unknown";
+            }
+        }
+
 
         /// <summary>
         /// Called at plugin manager stop, close/displose anything needed here !
@@ -1174,17 +1116,11 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.mChangedParamValue = mChangedParamValue;
                         }
 
-
-                       // Logging.Current.Info(("Extended data update service connectded. " +  lmu_extended.mCutsPoints.ToString() + " Penalty laps" + lmu_extended.mPenaltyLeftLaps).ToString());
+                        // Logging.Current.Info(("Extended data update service connectded. " +  lmu_extended.mCutsPoints.ToString() + " Penalty laps" + lmu_extended.mPenaltyLeftLaps).ToString());
                     }
-
-
-
-
 
                  Thread.Sleep(100);
 
-                
                 }
 
             }
@@ -1340,11 +1276,6 @@ namespace Redadeg.lmuDataPlugin
             pluginManager.AddProperty("Redadeg.lmu.maxAvailableTires", this.GetType(), LMURepairAndRefuelData.maxAvailableTires);
             pluginManager.AddProperty("Redadeg.lmu.newTires", this.GetType(), LMURepairAndRefuelData.newTires);
 
-            //pluginManager.AddProperty("Redadeg.lmu.fl_TyreChange", this.GetType(), LMURepairAndRefuelData.fl_TyreChange);
-            //pluginManager.AddProperty("Redadeg.lmu.fr_TyreChange", this.GetType(), LMURepairAndRefuelData.fr_TyreChange);
-            //pluginManager.AddProperty("Redadeg.lmu.rl_TyreChange", this.GetType(), LMURepairAndRefuelData.rl_TyreChange);
-            //pluginManager.AddProperty("Redadeg.lmu.rr_TyreChange", this.GetType(), LMURepairAndRefuelData.rr_TyreChange);
-
             pluginManager.AddProperty("Redadeg.lmu.maxBattery", this.GetType(), LMURepairAndRefuelData.maxBattery);
             pluginManager.AddProperty("Redadeg.lmu.selectedMenuIndex", this.GetType(), 0);
             pluginManager.AddProperty("Redadeg.lmu.maxFuel", this.GetType(), LMURepairAndRefuelData.maxFuel);
@@ -1412,11 +1343,6 @@ namespace Redadeg.lmuDataPlugin
             //pluginManager.AddProperty("Redadeg.lmu.pitRecommendations.PIT_RECOM_fuel", this.GetType(), 0);
             //pluginManager.AddProperty("Redadeg.lmu.pitRecommendations.PIT_RECOM_virtualEnergy", this.GetType(), 0);
 
-            //pluginManager.AddProperty("Redadeg.lmu.fl_TyreCompound", this.GetType(), LMURepairAndRefuelData.fl_TyreCompound);
-            //pluginManager.AddProperty("Redadeg.lmu.fr_TyreCompound", this.GetType(), LMURepairAndRefuelData.fr_TyreCompound);
-            //pluginManager.AddProperty("Redadeg.lmu.rl_TyreCompound", this.GetType(), LMURepairAndRefuelData.rl_TyreCompound);
-            //pluginManager.AddProperty("Redadeg.lmu.rr_TyreCompound", this.GetType(), LMURepairAndRefuelData.rr_TyreCompound);
-
             pluginManager.AddProperty("Redadeg.lmu.Tyre.fl_TyreCompound_Name", this.GetType(), LMURepairAndRefuelData.fl_TyreCompound_Name);
             pluginManager.AddProperty("Redadeg.lmu.Tyre.fr_TyreCompound_Name", this.GetType(), LMURepairAndRefuelData.fr_TyreCompound_Name);
             pluginManager.AddProperty("Redadeg.lmu.Tyre.rl_TyreCompound_Name", this.GetType(), LMURepairAndRefuelData.rl_TyreCompound_Name);
@@ -1472,13 +1398,20 @@ namespace Redadeg.lmuDataPlugin
             pluginManager.AddProperty("Redadeg.lmu.GameInfos.RaceFinished", this.GetType(), LMURepairAndRefuelData.raceFinished);
 
             pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.RainChance", this.GetType(), LMURepairAndRefuelData.rainChance);
-            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.RainChance_Probability", this.GetType(), LMURepairAndRefuelData.RainChance_Probability);
-            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Sky_Probability", this.GetType(), LMURepairAndRefuelData.Sky_Probability);
-            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Temperature_Probability", this.GetType(), LMURepairAndRefuelData.Temperature_Probability);
+
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.AmbientTemp", this.GetType(), LMURepairAndRefuelData.ambientTemp);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.CloudCoverage", this.GetType(), LMURepairAndRefuelData.cloudCoverage);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.Humidity", this.GetType(), LMURepairAndRefuelData.humidity);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.LightLevel", this.GetType(), LMURepairAndRefuelData.lightLevel);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.RainIntensity", this.GetType(), LMURepairAndRefuelData.rainIntensity);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Current.Raining", this.GetType(), LMURepairAndRefuelData.raining);
+
             pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Track.Temp", this.GetType(), LMURepairAndRefuelData.trackTemp);
             pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Track.Wetness", this.GetType(), LMURepairAndRefuelData.trackWetness);
+            pluginManager.AddProperty("Redadeg.lmu.WeatherInfos.Track.Wetness_Text", this.GetType(), LMURepairAndRefuelData.trackWetness_Text);
 
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Virtual_Energy", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy);
+            pluginManager.AddProperty("Redadeg.lmu.PitMenu.Virtual_Energy_Text", this.GetType(), LMURepairAndRefuelData.PitMVirtualEnergy_Text);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.FuelRatio", this.GetType(), LMURepairAndRefuelData.FuelRatio);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Grille", this.GetType(), LMURepairAndRefuelData.Grille);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Wing", this.GetType(), LMURepairAndRefuelData.Wing);
@@ -1494,6 +1427,12 @@ namespace Redadeg.lmuDataPlugin
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_kPa", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_kPa", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_kPa", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa);
+
+            pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.fl_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.fl_Tyre_NewPressure_kPa_Text);
+            pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_kPa_Text);
+            pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_kPa_Text);
+            pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_kPa_Text", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_kPa_Text);
+
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.fl_Tyre_NewPressure_Bar", this.GetType(), LMURepairAndRefuelData.fl_Tyre_NewPressure_Bar);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_Bar", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_Bar);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Bar", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Bar);
@@ -1503,12 +1442,12 @@ namespace Redadeg.lmuDataPlugin
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi);
             pluginManager.AddProperty("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi);
 
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
-            pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
+            //pluginManager.AddProperty("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
 
             pluginManager.AddProperty("Redadeg.lmu.Energy.FuelConsumption_L", this.GetType(), LMURepairAndRefuelData.fuelConsumption);
             pluginManager.AddProperty("Redadeg.lmu.Energy.FuelFractionPerLap_%", this.GetType(), LMURepairAndRefuelData.fuelFractionPerLap);
@@ -1520,6 +1459,7 @@ namespace Redadeg.lmuDataPlugin
             try
             {
                 //Add front ABR
+                frontABR.Add("Détaché", "Détaché"); 
                 frontABR.Add("Detached", "Detached");
                 frontABR.Add("866 N/mm", "P1");
                 frontABR.Add("1069 N/mm", "P2");
@@ -1528,6 +1468,7 @@ namespace Redadeg.lmuDataPlugin
                 frontABR.Add("1676 N/mm", "P5");
 
                 //ferrary
+                frontABR.Add("FDétaché", "Détaché");
                 frontABR.Add("FDetached", "Detached");
                 frontABR.Add("F94 N/mm", "A-P1");
                 frontABR.Add("F107 N/mm", "A-P2");
@@ -1561,6 +1502,7 @@ namespace Redadeg.lmuDataPlugin
 
 
                 //pegeout
+                frontABR.Add("PDétaché", "Détaché");
                 frontABR.Add("PDetached", "Detached");
                 frontABR.Add("P428 N/mm", "P1");
                 frontABR.Add("P487 N/mm", "P2");
@@ -1582,6 +1524,7 @@ namespace Redadeg.lmuDataPlugin
 
 
                 //add rear abr
+                rearABR.Add("Détaché", "Détaché");
                 rearABR.Add("Detached", "Detached");
                 rearABR.Add("492 N/mm", "P1");
                 rearABR.Add("638 N/mm", "P2");
@@ -1589,6 +1532,7 @@ namespace Redadeg.lmuDataPlugin
                 rearABR.Add("930 N/mm", "P4");
                 rearABR.Add("1077 N/mm", "P5");
                 //ferrary
+                rearABR.Add("FDétaché", "Détaché");
                 rearABR.Add("FDetached", "Detached");
                 rearABR.Add("F98 N/mm", "A-P1");
                 rearABR.Add("F120 N/mm", "A-P2");
@@ -1621,6 +1565,7 @@ namespace Redadeg.lmuDataPlugin
                 rearABR.Add("F736 N/mm", "E-P5");
 
                 //pegeout
+                rearABR.Add("PDétaché", "Détaché");
                 rearABR.Add("PDetached", "Detached");
                 rearABR.Add("P119 N/mm", "P1");
                 rearABR.Add("P144 N/mm", "P2");
@@ -1644,6 +1589,4 @@ namespace Redadeg.lmuDataPlugin
             catch { }
         }
     }
-
-
 }
