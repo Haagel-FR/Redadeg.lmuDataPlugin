@@ -3,12 +3,12 @@
   "WorkspaceRootPath": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|c:\\users\\tb\\source\\repos\\tembob64\\redadeg.lmudataplugin\\settingscontrol.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|solutionrelative:settingscontrol.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\plugingetlmudata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|solutionrelative:plugingetlmudata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|c:\\users\\tb\\source\\repos\\tembob64\\redadeg.lmudataplugin\\plugingetlmudata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|solutionrelative:plugingetlmudata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|c:\\users\\tb\\source\\repos\\tembob64\\redadeg.lmudataplugin\\settingscontrol.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|solutionrelative:settingscontrol.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -18,7 +18,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 3,
           "Children": [
             {
               "$type": "Bookmark",
@@ -30,30 +30,26 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "SettingsControl.xaml.cs",
               "DocumentMoniker": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\SettingsControl.xaml.cs",
               "RelativeDocumentMoniker": "SettingsControl.xaml.cs",
               "ToolTip": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\SettingsControl.xaml.cs",
               "RelativeToolTip": "SettingsControl.xaml.cs",
-              "ViewState": "AQIAAFkAAAAAAAAAAAAEwGMAAAAMAAAA",
+              "ViewState": "AQIAAA8BAAAAAAAAAAAkwGMAAAAMAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-05-05T12:16:25.473Z",
               "EditorCaption": ""
             },
             {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
-            },
-            {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "PluginGetLmuData.cs",
               "DocumentMoniker": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\PluginGetLmuData.cs",
               "RelativeDocumentMoniker": "PluginGetLmuData.cs",
               "ToolTip": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\PluginGetLmuData.cs",
               "RelativeToolTip": "PluginGetLmuData.cs",
-              "ViewState": "AQIAAEEAAAAAAAAAAADgv1wAAAAIAAAA",
+              "ViewState": "AQIAABMCAAAAAAAAAAD4vzcCAABvAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2025-05-05T12:13:33.29Z",
               "EditorCaption": ""
