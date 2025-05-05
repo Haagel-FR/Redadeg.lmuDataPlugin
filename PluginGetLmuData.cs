@@ -90,7 +90,7 @@ namespace Redadeg.lmuDataPlugin
         private bool InToPitFlag = false;
         private bool IsLapValid = true;
         private bool LapInvalidated = false;
-        private int pitStopUpdatePause = -1;
+      //  private int pitStopUpdatePause = -1;
         private double sesstionTimeStamp = 0; 
         private double lastLapTime = 0;
         private const  int updateDataDelayTimer = 10;
@@ -337,13 +337,6 @@ namespace Redadeg.lmuDataPlugin
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.fr_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.fr_Tyre_NewPressure_Psi);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rl_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rl_Tyre_NewPressure_Psi);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.PitMenu.Tyre.rr_Tyre_NewPressure_Psi", this.GetType(), LMURepairAndRefuelData.rr_Tyre_NewPressure_Psi);
-
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FL_TIRE", this.GetType(), LMURepairAndRefuelData.FL_TIRE);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_FR_TIRE", this.GetType(), LMURepairAndRefuelData.FR_TIRE);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RL_TIRE", this.GetType(), LMURepairAndRefuelData.RL_TIRE);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.Change_RR_TIRE", this.GetType(), LMURepairAndRefuelData.RR_TIRE);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddFuel", this.GetType(), LMURepairAndRefuelData.addFuel);
-                                //pluginManager.SetPropertyValue("Redadeg.lmu.PitRecommend.AddVirtualEnergy", this.GetType(), LMURepairAndRefuelData.addVirtualEnergy);
 
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Energy.FuelConsumption_L", this.GetType(), LMURepairAndRefuelData.fuelConsumption);
                                 pluginManager.SetPropertyValue("Redadeg.lmu.Energy.FuelFractionPerLap_%", this.GetType(), LMURepairAndRefuelData.fuelFractionPerLap);

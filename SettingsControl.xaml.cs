@@ -97,7 +97,7 @@ namespace Redadeg.lmuDataPlugin
 
         public void Refresh(string _Key)
         {
-            bool changedBind = false;
+          //  bool changedBind = false;
             string MessageText = "";
 
             try
