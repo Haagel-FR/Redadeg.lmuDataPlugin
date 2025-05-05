@@ -1,7 +1,22 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\PluginGetLmuData.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|solutionrelative:PluginGetLmuData.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\SettingsControl.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|solutionrelative:SettingsControl.xaml.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{00000000-0000-0000-0000-000000000000}|\u003CSolution\u003E|Redadeg.lmuDataPlugin||{04B8AB82-A572-4FEF-95CE-5222444B6B64}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{833040C9-FE5E-4CCF-B21D-71979E049B6B}|Redadeg.lmuDataPlugin.csproj|c:\\users\\tb\\source\\repos\\tembob64\\redadeg.lmudataplugin\\||{B270807C-D8C6-49EB-8EBE-8E8D566637A1}|1e78f8db-6c07-4d61-a18f-7514010abd56"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
@@ -9,7 +24,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": -1,
+          "SelectedChildIndex": 5,
           "Children": [
             {
               "$type": "Bookmark",
@@ -22,6 +37,44 @@
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "Redadeg.lmuDataPlugin",
+              "DocumentMoniker": "C:\\Users\\TB\\Source\\Repos\\tembob64\\Redadeg.lmuDataPlugin\\Redadeg.lmuDataPlugin.csproj",
+              "RelativeDocumentMoniker": "Redadeg.lmuDataPlugin.csproj",
+              "ToolTip": "C:\\Users\\TB\\Source\\Repos\\tembob64\\Redadeg.lmuDataPlugin\\Redadeg.lmuDataPlugin.csproj",
+              "RelativeToolTip": "Redadeg.lmuDataPlugin.csproj",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2025-05-05T11:25:45.424Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "SettingsControl.xaml.cs",
+              "DocumentMoniker": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\SettingsControl.xaml.cs",
+              "RelativeDocumentMoniker": "SettingsControl.xaml.cs",
+              "ToolTip": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\SettingsControl.xaml.cs",
+              "RelativeToolTip": "SettingsControl.xaml.cs",
+              "ViewState": "AQIAAK4AAAAAAAAAAAAuwNkAAAAJAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-05T09:20:55.277Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "PluginGetLmuData.cs",
+              "DocumentMoniker": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\PluginGetLmuData.cs",
+              "RelativeDocumentMoniker": "PluginGetLmuData.cs",
+              "ToolTip": "C:\\Users\\TB\\source\\repos\\tembob64\\Redadeg.lmuDataPlugin\\PluginGetLmuData.cs",
+              "RelativeToolTip": "PluginGetLmuData.cs",
+              "ViewState": "AQIAAC8DAAAAAAAAAAAiwD8DAABNAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-05-05T09:20:00.06Z",
+              "EditorCaption": ""
             }
           ]
         }
