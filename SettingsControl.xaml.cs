@@ -1,28 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using Newtonsoft.Json.Linq; // Needed for JObject 
 using System.IO;    // Needed for read/write JSON settings file
 using SimHub;   // Needed for Logging
-using System.Net;
-using System.Linq.Expressions;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using MahApps.Metro.Controls;   // Needed for Logging
 using System.Windows.Markup;
-using SimHub.Plugins.OutputPlugins.Dash.WPFUI;
-using System.Diagnostics.Eventing.Reader;
 
 namespace Redadeg.lmuDataPlugin
 {
@@ -32,50 +14,17 @@ namespace Redadeg.lmuDataPlugin
 
     public partial class SettingsControl : UserControl, IComponentConnector
     {
-
-
-        //public void InitializeComponent()
-        //{
-        //    if (!_contentLoaded)
-        //    {
-        //        _contentLoaded = true;
-        //        Uri resourceLocator = new Uri("/SimHub.Plugins;component/inputplugins/joystick/joystickpluginsettingscontrolwpf.xaml", UriKind.Relative);
-        //        Application.LoadComponent(this, resourceLocator);
-        //    }
-        //}
-
         internal Delegate _CreateDelegate(Type delegateType, string handler)
         {
             return Delegate.CreateDelegate(delegateType, this, handler);
         }
 
-        //void IComponentConnector.Connect(int connectionId, object target)
-        //{
-        //    if (connectionId == 1)
-        //    {
-        //        ((Button)target).Click += clearLogging_Click;
-        //    }
-        //    else
-        //    {
-        //        _contentLoaded = true;
-        //    }
-        //}
         public SettingsControl()
         {
             InitializeComponent();
 
 
         }
-
-        //private bool value_changed = false;
-
-        //private delegate void UpdateDataThreadSafeDelegate<TResult>(void Refresh);
-
-        //public static void UpdateDataThreadSafe<TResult>(this Control @this)
-        //{
-        //   @this.Update;
-        //}
-
 
         void OnLoad(object sender, RoutedEventArgs e)
         {
@@ -92,12 +41,9 @@ namespace Redadeg.lmuDataPlugin
             RealTimeClock.IsChecked = ButtonBindSettings.RealTimeClock;
             GetMemoryDataThreadTimeout.Value = ButtonBindSettings.GetMemoryDataThreadTimeout;
             DataUpdateThreadTimeout.Value = ButtonBindSettings.DataUpdateThreadTimeout;
-        }
-
-
-        public void Refresh(string _Key)
+        }   
+        public  void Refresh(string _Key)
         {
-          //  bool changedBind = false;
             string MessageText = "";
 
             try
@@ -111,8 +57,8 @@ namespace Redadeg.lmuDataPlugin
             catch { }
             base.Dispatcher.InvokeAsync(delegate
             {
-
-
+                
+               
                 lock (clock_format24)
                 {
                     clock_format24.IsChecked = ButtonBindSettings.Clock_Format24;
@@ -179,7 +125,7 @@ namespace Redadeg.lmuDataPlugin
         }
 
         private void SaveSetting()
-        {
+         {
             JObject JSONdata = new JObject(
                    new JProperty("Clock_Format24", ButtonBindSettings.Clock_Format24),
                    new JProperty("RealTimeClock", ButtonBindSettings.RealTimeClock),
@@ -201,8 +147,8 @@ namespace Redadeg.lmuDataPlugin
 
             }
         }
-
-
+       
+      
 
         private void clock_format24_Checked(object sender, RoutedEventArgs e)
         {
@@ -241,14 +187,8 @@ namespace Redadeg.lmuDataPlugin
             ButtonBindSettings.DataUpdateThreadTimeout = (int)DataUpdateThreadTimeout.Value;
             SaveSetting();
         }
-
-
     }
-
-    
-  
-
-    public class LMU_EnegryAndFuelCalculation
+   public class LMU_EnegryAndFuelCalculation
     {
         public static double lastLapEnegry { get; set; }
         public static int lapIndex = 0;
@@ -273,16 +213,4 @@ namespace Redadeg.lmuDataPlugin
         public static int GetMemoryDataThreadTimeout { get; set; }
 
     }
-
-
-    /*public class AccSpeed - old way
-    {*/
-    /*private static int Speed = 20;
-    public static int Value
-    {
-        get { return Speed; }
-        set { Speed = value; }
-    }*/
-    /*public static int Value { get; set; }
-}*/
 }
