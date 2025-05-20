@@ -96,6 +96,126 @@ namespace Redadeg.lmuDataPlugin
         bool rf2_score_connected = false;
         private HttpClient _httpClient;
 
+
+        // <summary>
+        // The Init Method is called by SimHub when plugin is loaded
+        // </summary>
+        // <param name="pluginManager"></param>
+        public void Init(PluginManager pluginManager)
+        {
+            _httpClient = new HttpClient();
+            LapTimes = new List<float>();
+            EnergyConsuptions = new List<float>();
+            ClearEnergyConsuptions = new List<float>();
+            FuelConsuptions = new List<float>();
+
+            //***** Read persistant data config for plugin
+            
+            // Read the data from file 
+            // set path/filename for settings file
+            LMURepairAndRefuelData.path = PluginManager.GetCommonStoragePath(PLUGIN_CONFIG_FILENAME);
+            try
+            {
+                // try to read settings file
+                JObject JSONSettingsdata = JObject.Parse(File.ReadAllText(LMURepairAndRefuelData.path));
+                ButtonBindSettings.Clock_Format24 = JSONSettingsdata["Clock_Format24"] != null ? (bool)JSONSettingsdata["Clock_Format24"] : false;
+                ButtonBindSettings.RealTimeClock = JSONSettingsdata["RealTimeClock"] != null ? (bool)JSONSettingsdata["RealTimeClock"] : false;
+                ButtonBindSettings.GetMemoryDataThreadTimeout = JSONSettingsdata["GetMemoryDataThreadTimeout"] != null ? (int)JSONSettingsdata["GetMemoryDataThreadTimeout"] : 50;
+                ButtonBindSettings.DataUpdateThreadTimeout = JSONSettingsdata["DataUpdateThreadTimeout"] != null ? (int)JSONSettingsdata["DataUpdateThreadTimeout"] : 100;
+            }
+            catch { }
+
+            //***** Start the internal Thread which communicate with LMU
+            // Memory shared communication
+            lmu_extendedThread = new Thread(lmu_extendedReadThread);
+            lmu_extendedThread.Name = "ExtendedDataUpdateThread";
+            lmu_extendedThread.Start();
+            
+            // API WEB call
+            lmuGetJSonDataThread = new Thread(lmu_GetJSonDataThread);
+            lmuGetJSonDataThread.Name = "GetJSonDataThread";
+            lmuGetJSonDataThread.Start();
+
+            // Computing thread over data
+            lmuCalculateConsumptionsThread = new Thread(lmu_CalculateConsumptionsThread);
+            lmuCalculateConsumptionsThread.Name = "CalculateConsumptionsThread";
+            lmuCalculateConsumptionsThread.Start();
+
+            //***** Init Properties and Data SimHUB
+            addPropertyToSimHUB(pluginManager);
+            initFrontABRDict();
+            initBackABRDict();
+        }
+
+        // <summary>
+        // Called at plugin manager stop, close/displose anything needed here !
+        // </summary>
+        // <param name="pluginManager"></param>
+        public void End(PluginManager pluginManager)
+        {
+            IsEnded = true;
+            CalculateConsumptionsIsEnded = true;
+            GetJSonDataIsEnded = true;
+            cts.Cancel();
+            ctsGetJSonDataThread.Cancel();
+            ctsCalculateConsumptionsThread.Cancel();
+            lmu_extendedThread.Join();
+            lmuGetJSonDataThread.Join();
+            lmuCalculateConsumptionsThread.Join();
+            // try to read complete data file from disk, compare file data with new data and write new file if there are diffs
+            try
+            {
+                if (rf2_score_connected) this.scoringBuffer.Disconnect();
+                if(lmu_extended_connected) this.extendedBuffer.Disconnect();
+                if (lmu_extended_connected) this.rulesBuffer.Disconnect();
+            }
+            // if there is not already a settings file on disk, create new one and write data for current game
+            catch (FileNotFoundException)
+            {
+                // try to write data file
+               
+            }
+            // other errors like Syntax error on JSON parsing, data file will not be saved
+            catch (Exception ex)
+            {
+                Logging.Current.Info("Plugin Redadeg.lmuDataPlugin - data file not saved. The following error occured: " + ex.Message);
+            }
+        }
+
+        // <summary>
+        // Return to simhub thee winform settings control here, return null if no settings control
+        // 
+        // </summary>
+        // <param name="pluginManager"></param>
+        // <returns></returns>
+        public System.Windows.Forms.Control GetSettingsControl(PluginManager pluginManager)
+        {
+            return null;
+        }
+
+        // <summary>
+        // Return to simhub thee winform settings control here, return null if no settings control
+        // 
+        // </summary>
+        // <param name="pluginManager"></param>
+        // <returns></returns>
+        public System.Windows.Controls.Control GetWPFSettingsControl(PluginManager pluginManager)
+        {
+            if (settingsControlwpf == null)
+            {
+                settingsControlwpf = new SettingsControl();
+            }
+
+            return settingsControlwpf;
+        }
+
+        /// <summary>
+        /// Methode called by SimHub to refresh data. 
+        /// 1. Calculate some "time data" from incoming data
+        /// 2. Uppdate Simhub data value 
+        /// </summary>
+        /// <param name="pluginManager"></param>
+        /// <param name="data"></param>
         public void DataUpdate(PluginManager pluginManager, ref GameData data)
         {
 
@@ -106,7 +226,7 @@ namespace Redadeg.lmuDataPlugin
             GameReplay = data.GameReplay;
 
             if (curGame == "LMU" //TODO: check a record where the game was captured from startup on
-                    && data.GameRunning && !data.GameInMenu && !data.GamePaused && !data.GameReplay 
+                    && data.GameRunning && !data.GameInMenu && !data.GamePaused && !data.GameReplay
                     && !StopUpdate && (data.OldData != null)
                 )
             {
@@ -177,8 +297,8 @@ namespace Redadeg.lmuDataPlugin
 
                 //**********  Update property in simhub with lastest values calculate
                 if (NeedUpdateData)
-                { 
-                    setPropertiesInSimhub(pluginManager);                    
+                {
+                    setPropertiesInSimhub(pluginManager);
                 }
 
             }
@@ -186,127 +306,7 @@ namespace Redadeg.lmuDataPlugin
             {
                 LMURepairAndRefuelData.mChangedParamType = -1;
                 LMURepairAndRefuelData.mChangedParamValue = "";
-            }            
-        }
-
-        // <summary>
-        // The Init Method is called by SimHub when plugin is loaded
-        // </summary>
-        // <param name="pluginManager"></param>
-        public void Init(PluginManager pluginManager)
-        {
-            _httpClient = new HttpClient();
-            LapTimes = new List<float>();
-            EnergyConsuptions = new List<float>();
-            ClearEnergyConsuptions = new List<float>();
-            FuelConsuptions = new List<float>();
-
-            //***** Read persistant data config for plugin
-            // Read the plugin settings 
-            // TODO Chek  in debug the method LoadSettings is empty, perhaps override requires it
-            LoadSettings(pluginManager); 
-            
-            // Read the data from file 
-            // set path/filename for settings file
-            LMURepairAndRefuelData.path = PluginManager.GetCommonStoragePath(PLUGIN_CONFIG_FILENAME);
-            try
-            {
-                // try to read settings file
-                JObject JSONSettingsdata = JObject.Parse(File.ReadAllText(LMURepairAndRefuelData.path));
-                ButtonBindSettings.Clock_Format24 = JSONSettingsdata["Clock_Format24"] != null ? (bool)JSONSettingsdata["Clock_Format24"] : false;
-                ButtonBindSettings.RealTimeClock = JSONSettingsdata["RealTimeClock"] != null ? (bool)JSONSettingsdata["RealTimeClock"] : false;
-                ButtonBindSettings.GetMemoryDataThreadTimeout = JSONSettingsdata["GetMemoryDataThreadTimeout"] != null ? (int)JSONSettingsdata["GetMemoryDataThreadTimeout"] : 50;
-                ButtonBindSettings.DataUpdateThreadTimeout = JSONSettingsdata["DataUpdateThreadTimeout"] != null ? (int)JSONSettingsdata["DataUpdateThreadTimeout"] : 100;
             }
-            catch { }
-
-            //REMOVE string path_data = PluginManager.GetCommonStoragePath("Redadeg.lmuDataPlugin.data.json");
-            //List<PitStopDataIndexesClass> PitStopDataIndexes = new List<PitStopDataIndexesClass>();
-
-            //***** Start the internal Thread which communicate with LMU
-            // Memory shared communication
-            lmu_extendedThread = new Thread(lmu_extendedReadThread);
-            lmu_extendedThread.Name = "ExtendedDataUpdateThread";
-            lmu_extendedThread.Start();
-            
-            // API WEB call
-            lmuGetJSonDataThread = new Thread(lmu_GetJSonDataThread);
-            lmuGetJSonDataThread = "GetJSonDataThread";
-            lmuGetJSonDataThread.Start();
-
-            // Computing thread over data
-            lmuCalculateConsumptionsThread = new Thread(lmu_CalculateConsumptionsThread);
-            lmuCalculateConsumptionsThread = "CalculateConsumptionsThread";
-            lmuCalculateConsumptionsThread.Start();
-
-            //***** Init Properties and Data SimHUB
-            addPropertyToSimHUB();
-            initFrontABRDict();
-            initBackABRDict();
-        }
-
-        // <summary>
-        // Called at plugin manager stop, close/displose anything needed here !
-        // </summary>
-        // <param name="pluginManager"></param>
-        public void End(PluginManager pluginManager)
-        {
-            IsEnded = true;
-            CalculateConsumptionsIsEnded = true;
-            GetJSonDataIsEnded = true;
-            cts.Cancel();
-            ctsGetJSonDataThread.Cancel();
-            ctsCalculateConsumptionsThread.Cancel();
-            lmu_extendedThread.Join();
-            lmuGetJSonDataThread.Join();
-            lmuCalculateConsumptionsThread.Join();
-            // try to read complete data file from disk, compare file data with new data and write new file if there are diffs
-            try
-            {
-                if (rf2_score_connected) this.scoringBuffer.Disconnect();
-                if(lmu_extended_connected) this.extendedBuffer.Disconnect();
-                if (lmu_extended_connected) this.rulesBuffer.Disconnect();
-            }
-            // if there is not already a settings file on disk, create new one and write data for current game
-            catch (FileNotFoundException)
-            {
-                // try to write data file
-               
-            }
-            // other errors like Syntax error on JSON parsing, data file will not be saved
-            catch (Exception ex)
-            {
-                Logging.Current.Info("Plugin Redadeg.lmuDataPlugin - data file not saved. The following error occured: " + ex.Message);
-            }
-        }
-
-        // <summary>
-        // Return you winform settings control here, return null if no settings control
-        // 
-        // </summary>
-        // <param name="pluginManager"></param>
-        // <returns></returns>
-        public System.Windows.Forms.Control GetSettingsControl(PluginManager pluginManager)
-        {
-            return null;
-        }
-
-        public  System.Windows.Controls.Control GetWPFSettingsControl(PluginManager pluginManager)
-        {
-            if (settingsControlwpf == null)
-            {
-                settingsControlwpf = new SettingsControl();
-            }
-
-            return settingsControlwpf;
-        }
-
-        private void LoadSettings(PluginManager pluginManager)
-        {
-            //IL_006a: Unknown result type (might be due to invalid IL or missing references)
-            //IL_006f: Unknown result type (might be due to invalid IL or missing references)
-            //IL_007c: Unknown result type (might be due to invalid IL or missing references)
-            //IL_008e: Expected O, but got Unknown           
         }
 
         private void setPropertiesInSimhub(PluginManager pluginManager) {
@@ -444,6 +444,8 @@ namespace Redadeg.lmuDataPlugin
                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Temp", this.GetType(), LMURepairAndRefuelData.trackTemp);
                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Wetness_%", this.GetType(), LMURepairAndRefuelData.trackWetness);
                 pluginManager.SetPropertyValue("Redadeg.lmu.WeatherInfos.Track.Wetness_Text", this.GetType(), LMURepairAndRefuelData.trackWetness_Text);
+
+                // when data are update we change the status to precent cpu usage at the next simhub call, if no data are updated
                 NeedUpdateData = false;
             }
             catch (Exception ex)
@@ -465,58 +467,58 @@ namespace Redadeg.lmuDataPlugin
                         {
                             if (updateConsuptionDelayCounter < 0)
                             {
-                            JObject TireMagagementJSONdata = JObject.Parse(await FetchTireManagementJSONdata());
-                            JObject expectedUsage = JObject.Parse(TireMagagementJSONdata["expectedUsage"].ToString());
+                                JObject TireMagagementJSONdata = JObject.Parse(await FetchTireManagementJSONdata());
+                                JObject expectedUsage = JObject.Parse(TireMagagementJSONdata["expectedUsage"].ToString());
 
-                            float fuelConsumption = (float)expectedUsage["fuelConsumption"];
-                            float fuelFractionPerLap = (float)expectedUsage["fuelFractionPerLap"];
-                            float virtualEnergyConsumption = (float)((float)expectedUsage["virtualEnergyConsumption"] / (float)LMURepairAndRefuelData.maxVirtualEnergy * 100);
-                            float virtualEnergyFractionPerLap = (float)expectedUsage["virtualEnergyFractionPerLap"];
-                            float ComputedFuelRatio_LastLap = fuelFractionPerLap / virtualEnergyFractionPerLap;
+                                float fuelConsumption = (float)expectedUsage["fuelConsumption"];
+                                float fuelFractionPerLap = (float)expectedUsage["fuelFractionPerLap"];
+                                float virtualEnergyConsumption = (float)((float)expectedUsage["virtualEnergyConsumption"] / (float)LMURepairAndRefuelData.maxVirtualEnergy * 100);
+                                float virtualEnergyFractionPerLap = (float)expectedUsage["virtualEnergyFractionPerLap"];
+                                float ComputedFuelRatio_LastLap = fuelFractionPerLap / virtualEnergyFractionPerLap;
 
-                            LMURepairAndRefuelData.fuelFractionPerLap = (float)Math.Round((fuelFractionPerLap * 100), 4);
-                            LMURepairAndRefuelData.virtualEnergyFractionPerLap = (float)Math.Round((virtualEnergyFractionPerLap * 100), 4);
-                            LMURepairAndRefuelData.energyPerLastLap = (float)Math.Round(virtualEnergyConsumption, 2);
-                            LMURepairAndRefuelData.ComputedFuelRatio_LastLap = (float)Math.Round((ComputedFuelRatio_LastLap), 2);
+                                LMURepairAndRefuelData.fuelFractionPerLap = (float)Math.Round((fuelFractionPerLap * 100), 4);
+                                LMURepairAndRefuelData.virtualEnergyFractionPerLap = (float)Math.Round((virtualEnergyFractionPerLap * 100), 4);
+                                LMURepairAndRefuelData.energyPerLastLap = (float)Math.Round(virtualEnergyConsumption, 2);
+                                LMURepairAndRefuelData.ComputedFuelRatio_LastLap = (float)Math.Round((ComputedFuelRatio_LastLap), 2);
 
-                            if (EnergyConsuptions.Count < 5)
-                            {
-                                energy_CurrentIndex++;
-                                EnergyConsuptions.Add(virtualEnergyConsumption);
-                                fuelratio_CurrentIndex++;
-                                FuelRatioAvg.Add(ComputedFuelRatio_LastLap);
-                            }
-                            else if (EnergyConsuptions.Count == 5)
-                            {
-                                energy_CurrentIndex++;
-                                if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
-                                EnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
-                                fuelratio_CurrentIndex++;
-                                if (fuelratio_CurrentIndex > 4) fuelratio_CurrentIndex = 0;
-                                FuelRatioAvg[fuelratio_CurrentIndex] = ComputedFuelRatio_LastLap;
-                            }
-
-                            if (IsLapValid && !LapInvalidated && !OutFromPitFlag && !InToPitFlag && LMURepairAndRefuelData.IsInPit == 0)
-                            {
-                                if (LapTimes.Count < 5)
+                                if (EnergyConsuptions.Count < 5)
                                 {
-                                    energy_CurrentIndex++;                                        
-                                    ClearEnergyConsuptions.Add(virtualEnergyConsumption);
-                                    FuelConsuptions.Add(fuelConsumption);
-                                    LapTimes.Add((float)lastLapTime);
+                                    energy_CurrentIndex++;
+                                    EnergyConsuptions.Add(virtualEnergyConsumption);
+                                    fuelratio_CurrentIndex++;
+                                    FuelRatioAvg.Add(ComputedFuelRatio_LastLap);
                                 }
-                                else if (LapTimes.Count == 5)
+                                else if (EnergyConsuptions.Count == 5)
                                 {
                                     energy_CurrentIndex++;
                                     if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
-                                    LapTimes[energy_CurrentIndex] = (float)lastLapTime;
-                                    ClearEnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
-                                    FuelConsuptions[energy_CurrentIndex] = fuelConsumption;
+                                    EnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
+                                    fuelratio_CurrentIndex++;
+                                    if (fuelratio_CurrentIndex > 4) fuelratio_CurrentIndex = 0;
+                                    FuelRatioAvg[fuelratio_CurrentIndex] = ComputedFuelRatio_LastLap;
                                 }
+
+                                if (IsLapValid && !LapInvalidated && !OutFromPitFlag && !InToPitFlag && LMURepairAndRefuelData.IsInPit == 0)
+                                {
+                                    if (LapTimes.Count < 5)
+                                    {
+                                        energy_CurrentIndex++;                                        
+                                        ClearEnergyConsuptions.Add(virtualEnergyConsumption);
+                                        FuelConsuptions.Add(fuelConsumption);
+                                        LapTimes.Add((float)lastLapTime);
+                                    }
+                                    else if (LapTimes.Count == 5)
+                                    {
+                                        energy_CurrentIndex++;
+                                        if (energy_CurrentIndex > 4) energy_CurrentIndex = 0;
+                                        LapTimes[energy_CurrentIndex] = (float)lastLapTime;
+                                        ClearEnergyConsuptions[energy_CurrentIndex] = virtualEnergyConsumption;
+                                        FuelConsuptions[energy_CurrentIndex] = fuelConsumption;
+                                    }
+                                }
+                                updateConsuptionFlag = false;
+                                updateConsuptionDelayCounter = 10;
                             }
-                            updateConsuptionFlag = false;
-                            updateConsuptionDelayCounter = 10;
-                        }
                         // Logging.Current.Info("Last Lap: " + lastLapTime.ToString() + " updateConsuptionDelayCounter: " + updateConsuptionDelayCounter.ToString() + " virtualEnergyConsumption: " + virtualEnergyConsumption.ToString());
 
                         updateConsuptionDelayCounter--;
@@ -939,7 +941,7 @@ namespace Redadeg.lmuDataPlugin
                     Thread.Sleep(ButtonBindSettings.DataUpdateThreadTimeout);
                 }
             }
-              catch (AggregateException)
+            catch (AggregateException)
             {
                 Logging.Current.Info(("AggregateException"));
             }
@@ -1184,79 +1186,57 @@ namespace Redadeg.lmuDataPlugin
               ? Encoding.Default.GetString(bytes, 0, nullIdx)
               : Encoding.Default.GetString(bytes);
         }
-        public static rF2VehicleScoring GetPlayerScoring(ref rF2Scoring scoring)
-        {
-            var playerVehScoring = new rF2VehicleScoring();
-            for (int i = 0; i < scoring.mScoringInfo.mNumVehicles; ++i)
-            {
-                var vehicle = scoring.mVehicles[i];
-                switch ((LMU_Constants.rF2Control)vehicle.mControl)
-                {
-                    case LMU_Constants.rF2Control.AI:
-                    case LMU_Constants.rF2Control.Player:
-                    case LMU_Constants.rF2Control.Remote:
-                        if (vehicle.mIsPlayer == 1)
-                            playerVehScoring = vehicle;
+        //public static rF2VehicleScoring GetPlayerScoring(ref rF2Scoring scoring)
+        //{
+        //    var playerVehScoring = new rF2VehicleScoring();
+        //    for (int i = 0; i < scoring.mScoringInfo.mNumVehicles; ++i)
+        //    {
+        //        var vehicle = scoring.mVehicles[i];
+        //        switch ((LMU_Constants.rF2Control)vehicle.mControl)
+        //        {
+        //            case LMU_Constants.rF2Control.AI:
+        //            case LMU_Constants.rF2Control.Player:
+        //            case LMU_Constants.rF2Control.Remote:
+        //                if (vehicle.mIsPlayer == 1)
+        //                    playerVehScoring = vehicle;
 
-                        break;
+        //                break;
 
-                    default:
-                        continue;
-                }
+        //            default:
+        //                continue;
+        //        }
 
-                if (playerVehScoring.mIsPlayer == 1)
-                    break;
-            }
+        //        if (playerVehScoring.mIsPlayer == 1)
+        //            break;
+        //    }
 
-            return playerVehScoring;
-        }
-        public static List<rF2VehicleScoring> GetOpenentsScoring(ref rF2Scoring scoring)
-        {
-            List<rF2VehicleScoring> playersVehScoring  = new List<rF2VehicleScoring>();
-            for (int i = 0; i < scoring.mScoringInfo.mNumVehicles; ++i)
-            {
-                var vehicle = scoring.mVehicles[i];
-                switch ((LMU_Constants.rF2Control)vehicle.mControl)
-                {
-                    case LMU_Constants.rF2Control.AI:
-                        //if (vehicle.mIsPlayer != 1)
-                            playersVehScoring.Add(vehicle);
-                        break;
-                    case LMU_Constants.rF2Control.Player:
-                    case LMU_Constants.rF2Control.Remote:
-                        //if (vehicle.mIsPlayer != 1)
-                            playersVehScoring.Add(vehicle);
+        //    return playerVehScoring;
+        //}
+        //public static List<rF2VehicleScoring> GetOpenentsScoring(ref rF2Scoring scoring)
+        //{
+        //    List<rF2VehicleScoring> playersVehScoring  = new List<rF2VehicleScoring>();
+        //    for (int i = 0; i < scoring.mScoringInfo.mNumVehicles; ++i)
+        //    {
+        //        var vehicle = scoring.mVehicles[i];
+        //        switch ((LMU_Constants.rF2Control)vehicle.mControl)
+        //        {
+        //            case LMU_Constants.rF2Control.AI:
+        //                //if (vehicle.mIsPlayer != 1)
+        //                    playersVehScoring.Add(vehicle);
+        //                break;
+        //            case LMU_Constants.rF2Control.Player:
+        //            case LMU_Constants.rF2Control.Remote:
+        //                //if (vehicle.mIsPlayer != 1)
+        //                    playersVehScoring.Add(vehicle);
 
-                        break;
+        //                break;
 
-                    default:
-                        continue;
-                }
-             }
-            return playersVehScoring;
-        }
-        private void SaveJSonSetting()
-        {
-            JObject JSONdata = new JObject(
-                   new JProperty("Clock_Format24", ButtonBindSettings.Clock_Format24),
-                   new JProperty("RealTimeClock", ButtonBindSettings.RealTimeClock),
-                   new JProperty("GetMemoryDataThreadTimeout", ButtonBindSettings.GetMemoryDataThreadTimeout),
-                   new JProperty("DataUpdateThreadTimeout", ButtonBindSettings.DataUpdateThreadTimeout));
-            //string settings_path = AccData.path;
-            try
-            {
-                // create/write settings file
-                File.WriteAllText(LMURepairAndRefuelData.path, JSONdata.ToString());
-                //Logging.Current.Info("Plugin Viper.PluginCalcLngWheelSlip - Settings file saved to : " + System.Environment.CurrentDirectory + "\\" + LMURepairAndRefuelData.path);
-            }
-            catch
-            {
-                //A MessageBox creates graphical glitches after closing it. Search another way, maybe using the Standard Log in SimHub\Logs
-                //MessageBox.Show("Cannot create or write the following file: \n" + System.Environment.CurrentDirectory + "\\" + AccData.path, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                //Logging.Current.Error("Plugin Viper.PluginCalcLngWheelSlip - Cannot create or write settings file: " + System.Environment.CurrentDirectory + "\\" + LMURepairAndRefuelData.path);
-            }
-        }      
-
+        //            default:
+        //                continue;
+        //        }
+        //     }
+        //    return playersVehScoring;
+        //}
 
         private void addPropertyToSimHUB(PluginManager pluginManager) {
             //pluginManager.AddProperty("Redadeg.lmu.CurrentLapTimeDifOldNew", this.GetType(), 0);
