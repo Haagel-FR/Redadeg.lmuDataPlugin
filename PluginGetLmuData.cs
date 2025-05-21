@@ -458,7 +458,7 @@ namespace Redadeg.lmuDataPlugin
         {
             try
             {
-                Task.Delay(500, ctsCalculateConsumptionsThread.Token).Wait();
+                await Task.Delay(500, ctsCalculateConsumptionsThread.Token);
                 while (!IsEnded)
                 {
                     if (GameRunning && !GameInMenu && !GamePaused && !GameReplay && curGame == "LMU")
@@ -526,7 +526,7 @@ namespace Redadeg.lmuDataPlugin
                     OutFromPitFlag = false;
                     InToPitFlag = false;
                 }
-                Thread.Sleep(100);
+                await Task.Delay(100, ctsCalculateConsumptionsThread.Token);
             }
             }
             catch (AggregateException)
@@ -543,7 +543,7 @@ namespace Redadeg.lmuDataPlugin
             {
             try
             {
-                Task.Delay(500, ctsGetJSonDataThread.Token).Wait();
+                await Task.Delay(500, ctsGetJSonDataThread.Token);
                 while (!IsEnded)
                 {
 
@@ -938,7 +938,7 @@ namespace Redadeg.lmuDataPlugin
                         // End New Datas 04-2025
                         NeedUpdateData = true;
                     }
-                    Thread.Sleep(ButtonBindSettings.DataUpdateThreadTimeout);
+                    await Task.Delay(ButtonBindSettings.DataUpdateThreadTimeout, ctsGetJSonDataThread.Token);
                 }
             }
             catch (AggregateException)
@@ -950,12 +950,13 @@ namespace Redadeg.lmuDataPlugin
                 Logging.Current.Info(("TaskCanceledException"));
             }
         }
+
         private void lmu_extendedReadThread()
         {
             try
             {
-                Task.Delay(500, cts.Token).Wait();
-            
+
+                await Task.Delay(500, cts.Token);
                 while (!IsEnded)
                 {
                     if (!this.lmu_extended_connected)
@@ -1029,8 +1030,7 @@ namespace Redadeg.lmuDataPlugin
 
                        // Logging.Current.Info(("Extended data update service connectded. " +  lmu_extended.mCutsPoints.ToString() + " Penalty laps" + lmu_extended.mPenaltyLeftLaps).ToString());
                     }
-
-                 Thread.Sleep(ButtonBindSettings.GetMemoryDataThreadTimeout);                
+                    await Task.Delay(ButtonBindSettings.GetMemoryDataThreadTimeout, cts.Token);       
                 }
             }
             catch (AggregateException)
