@@ -139,7 +139,7 @@ namespace Redadeg.lmuDataPlugin
             // Computing thread over data
             lmuCalculateConsumptionsThread = new Thread(lmu_CalculateConsumptionsThread);
             lmuCalculateConsumptionsThread.Name = "CalculateConsumptionsThread";
-            lmuCalculateConsumptionsThread.Start();
+            //lmuCalculateConsumptionsThread.Start(); // TODO bloack
 
             //***** Init Properties and Data SimHUB
             addPropertyToSimHUB(pluginManager);
@@ -526,7 +526,7 @@ namespace Redadeg.lmuDataPlugin
                     OutFromPitFlag = false;
                     InToPitFlag = false;
                 }
-                await Task.Delay(100, ctsCalculateConsumptionsThread.Token);
+                await Task.Delay(500, ctsCalculateConsumptionsThread.Token); // TODO VMA 100 avant
             }
             }
             catch (AggregateException)
@@ -551,11 +551,12 @@ namespace Redadeg.lmuDataPlugin
                     {
                         try
                         {
-                            JObject SetupJSONdata = JObject.Parse(await FetchCarSetupOverviewJSONdata());
-                            JObject garageValues = JObject.Parse(SetupJSONdata["carSetup"]?["garageValues"].ToString());
 
                             if (LMURepairAndRefuelData.mChangedParamType == -1)
                             {
+                                JObject SetupJSONdata = JObject.Parse(await FetchCarSetupOverviewJSONdata());
+                                JObject garageValues = JObject.Parse(SetupJSONdata["carSetup"]?["garageValues"].ToString());
+
                                 LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = garageValues["VM_ANTILOCKBRAKESYSTEMMAP"]?["stringValue"].ToString();
                                 LMURepairAndRefuelData.VM_BRAKE_BALANCE = garageValues["VM_BRAKE_BALANCE"]?["stringValue"].ToString();
                                 LMURepairAndRefuelData.VM_BRAKE_MIGRATION = garageValues["VM_BRAKE_MIGRATION"]?["stringValue"].ToString();
@@ -568,7 +569,7 @@ namespace Redadeg.lmuDataPlugin
                                 LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = garageValues["VM_TRACTIONCONTROLSLIPANGLEMAP"]?["stringValue"].ToString();
                                 LMURepairAndRefuelData.VM_REAR_ANTISWAY = garageValues["VM_REAR_ANTISWAY"]?["stringValue"].ToString();
                                 LMURepairAndRefuelData.VM_FRONT_ANTISWAY = garageValues["VM_FRONT_ANTISWAY"]?["stringValue"].ToString();
-
+                             
                             }
                             else
                             {
@@ -644,14 +645,20 @@ namespace Redadeg.lmuDataPlugin
                         // Start New Datas 04-2025
                         try
                         {
-                            JObject TireMagagementJSONdata = JObject.Parse(await FetchTireManagementJSONdata());
-                            JObject RepairAndRefuelJSONdata = JObject.Parse(await FetchRepairAndRefuelJSONdata());
+                            //await Task.Delay(10, ctsGetJSonDataThread.Token);                                       // buggy
+                            //JObject TireMagagementJSONdata = JObject.Parse(await FetchTireManagementJSONdata());    // buggy
+                            //await Task.Delay(10, ctsGetJSonDataThread.Token);                                       // buggy
+                            //JObject RepairAndRefuelJSONdata = JObject.Parse(await FetchRepairAndRefuelJSONdata());  // buggy
+                            await Task.Delay(10, ctsGetJSonDataThread.Token);
                             JObject GameStateJSONdata = JObject.Parse(await FetchGetGameStateJSONdata());
+                            await Task.Delay(10, ctsGetJSonDataThread.Token);
                             JObject RaceHistoryJSONdata = JObject.Parse(await FetchRaceHistoryJSONdata());
-                            JArray pitMenuJSONData = JArray.Parse(await FetchPitMenuJSONdata());
+                            //await Task.Delay(10, ctsGetJSonDataThread.Token);                                       // buggy
+                            //JArray pitMenuJSONData = JArray.Parse(await FetchPitMenuJSONdata());                    // buggy
+                            await Task.Delay(10, ctsGetJSonDataThread.Token);
                             JObject InfoForEventJSONdata = JObject.Parse(await FetchInfoForEventJSONdata());
 
-                            JObject tireInventory = JObject.Parse(TireMagagementJSONdata["tireInventory"].ToString());
+                            /*JObject tireInventory = JObject.Parse(TireMagagementJSONdata["tireInventory"].ToString());
                             JObject scheduledSessions = JObject.Parse(InfoForEventJSONdata.ToString());
 
 
@@ -907,9 +914,14 @@ namespace Redadeg.lmuDataPlugin
 
                             LMURepairAndRefuelData.currentBattery = (int)fuelInfo["currentBattery"];                            
                             LMURepairAndRefuelData.maxBattery = (int)fuelInfo["maxBattery"];
-                            LMURepairAndRefuelData.currentBatteryP = 100 * LMURepairAndRefuelData.currentBattery / LMURepairAndRefuelData.maxBattery;
+                            if (LMURepairAndRefuelData.maxBattery != 0) {
+                                LMURepairAndRefuelData.currentBatteryP = 100 * LMURepairAndRefuelData.currentBattery / LMURepairAndRefuelData.maxBattery;
+                            } else
+                            {
+                                LMURepairAndRefuelData.currentBatteryP = 0;
+                            }
 
-                            LMURepairAndRefuelData.currentFuel = currentFuel;
+                                LMURepairAndRefuelData.currentFuel = currentFuel;
                             LMURepairAndRefuelData.maxFuel = maxFuel;
 
                             LMURepairAndRefuelData.FuelNeededUntilEnd = (float)Math.Round((FuelNeededUntilEnd), 1);
@@ -929,6 +941,8 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.energyPerLast5ClearLap = ClearEnergyConsuptions.Count() > 0 ? (float)Math.Round(ClearEnergyConsuptions.Average(), 2) : 0;
                             LMURepairAndRefuelData.ComputedFuelRatio_Last5Lap = FuelRatioAvg.Count() > 0 ? (float)Math.Round(FuelRatioAvg.Average(), 2) : 0;
                             // End Virtual Energy management
+                            */
+
                         }
                         catch (Exception ex)
                         {
@@ -951,7 +965,7 @@ namespace Redadeg.lmuDataPlugin
             }
         }
 
-        private void lmu_extendedReadThread()
+        private async void lmu_extendedReadThread()
         {
             try
             {
@@ -979,12 +993,12 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.mPendingPenaltyType1 = 0;
                             LMURepairAndRefuelData.mPendingPenaltyType2 = 0;
                             LMURepairAndRefuelData.mPendingPenaltyType3 = 0;
-                            LMURepairAndRefuelData.mpBrakeMigration = 0;
+                            LMURepairAndRefuelData.mChangedParamValue = "";
+                            LMURepairAndRefuelData.mChangedParamType = -1; // TODO VMA force to -1 tu use webservice data when extended is not ready
+                            /*LMURepairAndRefuelData.mpBrakeMigration = 0;
                             LMURepairAndRefuelData.mpBrakeMigrationMax = 0;
                             LMURepairAndRefuelData.mpTractionControl = 0;
                             LMURepairAndRefuelData.mpMotorMap = "None";
-                            LMURepairAndRefuelData.mChangedParamValue = "None";
-                            LMURepairAndRefuelData.mChangedParamType = 0;
                             LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = "N/A";
                             LMURepairAndRefuelData.VM_BRAKE_BALANCE = "N/A";
                             LMURepairAndRefuelData.VM_BRAKE_MIGRATION = "N/A";
@@ -995,7 +1009,7 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = "N/A";
                             LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = "N/A";
                             LMURepairAndRefuelData.VM_FRONT_ANTISWAY = "N/A";
-                            LMURepairAndRefuelData.VM_REAR_ANTISWAY = "N/A";
+                            LMURepairAndRefuelData.VM_REAR_ANTISWAY = "N/A";*/
                             this.lmu_extended_connected = false;
                            // Logging.Current.Info("Extended data update service not connectded.");
                         }
@@ -1030,7 +1044,12 @@ namespace Redadeg.lmuDataPlugin
 
                        // Logging.Current.Info(("Extended data update service connectded. " +  lmu_extended.mCutsPoints.ToString() + " Penalty laps" + lmu_extended.mPenaltyLeftLaps).ToString());
                     }
-                    await Task.Delay(ButtonBindSettings.GetMemoryDataThreadTimeout, cts.Token);       
+                    if (this.lmu_extended_connected) {
+                        await Task.Delay(ButtonBindSettings.GetMemoryDataThreadTimeout, cts.Token);
+                    } else
+                    {
+                        await Task.Delay(5000, cts.Token);
+                    }
                 }
             }
             catch (AggregateException)
