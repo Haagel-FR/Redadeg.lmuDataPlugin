@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SimHub.Plugins.DataPlugins.DataCore;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
+using MahApps.Metro.Behaviours;
 
 
 namespace Redadeg.lmuDataPlugin
@@ -84,6 +85,8 @@ namespace Redadeg.lmuDataPlugin
         private const double PsiConvert = 0.14503773773020923;
         private const double zeroKelvin = 273.15;
 
+        private bool loadSessionStaticInfoFromWS = true; // set to true, to force loading data if simhub is launch after the session
+
         JObject pitMenuH;
 
         MappedBuffer<LMU_Extended> extendedBuffer = new MappedBuffer<LMU_Extended>(LMU_Constants.MM_EXTENDED_FILE_NAME, false /*partial*/, true /*skipUnchanged*/);
@@ -139,7 +142,7 @@ namespace Redadeg.lmuDataPlugin
             // Computing thread over data
             lmuCalculateConsumptionsThread = new Thread(lmu_CalculateConsumptionsThread);
             lmuCalculateConsumptionsThread.Name = "CalculateConsumptionsThread";
-            //lmuCalculateConsumptionsThread.Start(); // TODO bloack
+            lmuCalculateConsumptionsThread.Start();
 
             //***** Init Properties and Data SimHUB
             addPropertyToSimHUB(pluginManager);
@@ -225,6 +228,15 @@ namespace Redadeg.lmuDataPlugin
             GamePaused = data.GamePaused;
             GameReplay = data.GameReplay;
 
+            // When game is in menu, we setup flag to recall the pitmenu settings at the beginning of the session
+            if (curGame == "LMU"
+                    && data.GameRunning && data.GameInMenu && (!loadSessionStaticInfoFromWS)
+                ) 
+            { 
+                loadSessionStaticInfoFromWS = true;
+            }
+
+            // During game, we process simhub actions
             if (curGame == "LMU" //TODO: check a record where the game was captured from startup on
                     && data.GameRunning && !data.GameInMenu && !data.GamePaused && !data.GameReplay
                     && !StopUpdate && (data.OldData != null)
@@ -301,11 +313,6 @@ namespace Redadeg.lmuDataPlugin
                     setPropertiesInSimhub(pluginManager);
                 }
 
-            }
-            else
-            {
-                LMURepairAndRefuelData.mChangedParamType = -1;
-                LMURepairAndRefuelData.mChangedParamValue = "";
             }
         }
 
@@ -526,7 +533,7 @@ namespace Redadeg.lmuDataPlugin
                     OutFromPitFlag = false;
                     InToPitFlag = false;
                 }
-                await Task.Delay(500, ctsCalculateConsumptionsThread.Token); // TODO VMA 100 avant
+                await Task.Delay(ButtonBindSettings.ConsUpdateThreadTimeout, ctsCalculateConsumptionsThread.Token);
             }
             }
             catch (AggregateException)
@@ -549,10 +556,11 @@ namespace Redadeg.lmuDataPlugin
 
                     if (GameRunning && !GameInMenu && !GamePaused && !GameReplay && curGame == "LMU")
                     {
+
+                        // Load data from the webservice once when exiting menu
                         try
                         {
-
-                            if (LMURepairAndRefuelData.mChangedParamType == -1)
+                            if (loadSessionStaticInfoFromWS)
                             {
                                 JObject SetupJSONdata = JObject.Parse(await FetchCarSetupOverviewJSONdata());
                                 JObject garageValues = JObject.Parse(SetupJSONdata["carSetup"]?["garageValues"].ToString());
@@ -569,72 +577,20 @@ namespace Redadeg.lmuDataPlugin
                                 LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = garageValues["VM_TRACTIONCONTROLSLIPANGLEMAP"]?["stringValue"].ToString();
                                 LMURepairAndRefuelData.VM_REAR_ANTISWAY = garageValues["VM_REAR_ANTISWAY"]?["stringValue"].ToString();
                                 LMURepairAndRefuelData.VM_FRONT_ANTISWAY = garageValues["VM_FRONT_ANTISWAY"]?["stringValue"].ToString();
-                             
-                            }
-                            else
-                            {
-                                switch (LMURepairAndRefuelData.mChangedParamType)
-                                {
-                                    case 3:
-                                        LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 10:
-                                        LMURepairAndRefuelData.VM_BRAKE_BALANCE = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 15:
-                                        LMURepairAndRefuelData.VM_BRAKE_MIGRATION = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 9:
-                                        if (LMURepairAndRefuelData.mChangedParamValue.Contains("kW") || LMURepairAndRefuelData.mChangedParamValue.Contains("Off") || LMURepairAndRefuelData.mChangedParamValue.Contains("Safety-car") || LMURepairAndRefuelData.mChangedParamValue.Contains("Race"))
-                                        {
-                                            if (LMURepairAndRefuelData.CarClass.Contains("Hyper"))
-                                            {
-                                                LMURepairAndRefuelData.VM_ELECTRIC_MOTOR_MAP = LMURepairAndRefuelData.mChangedParamValue;
-                                            }
-                                            else
-                                            {
-                                                LMURepairAndRefuelData.VM_ENGINE_MIXTURE = LMURepairAndRefuelData.mChangedParamValue;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            if (LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse 2024") || LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse"))
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["F" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                            else if (LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies 2024") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport 2024") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing 2024") || LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing"))
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["P" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                            else if (LMURepairAndRefuelData.CarModel.Equals("Glickenhaus Racing"))
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["G" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                            else
-                                            { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR[LMURepairAndRefuelData.mChangedParamValue]; }
-                                        }
-                                        break;
-                                    case 11:
-                                        LMURepairAndRefuelData.VM_REGEN_LEVEL = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 7:
-                                        LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 6:
-                                        LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 2:
-                                        LMURepairAndRefuelData.VM_TRACTIONCONTROLMAP = LMURepairAndRefuelData.mChangedParamValue;
-                                        break;
-                                    case 8:
-                                        if (LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse 2024") || LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse"))
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["F" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                        else if (LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies 2024") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport 2024") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing 2024") || LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing"))
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["P" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                        else if (LMURepairAndRefuelData.CarModel.Equals("Glickenhaus Racing"))
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["G" + LMURepairAndRefuelData.mChangedParamValue]; }
-                                        else
-                                        { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR[LMURepairAndRefuelData.mChangedParamValue]; }
+                                // Garage data are loaded, we don't need to reload them until we go in GarageMenu
+                                
+                                await Task.Delay(ButtonBindSettings.DataUpdateThreadTimeout, ctsGetJSonDataThread.Token);
 
-                                        break;
-                                    default:
-                                        // code block
-                                        break;
+                                // race info don't change during the session, we load it once when we leave garage
+                                JObject InfoForEventJSONdata = JObject.Parse(await FetchInfoForEventJSONdata());
+                                JObject scheduledSessions = JObject.Parse(InfoForEventJSONdata.ToString());
+
+                                foreach (JObject Sesstions in scheduledSessions["scheduledSessions"])
+                                {
+                                    if (Sesstions["name"].ToString().ToUpper().Equals(LMURepairAndRefuelData.SessionTypeName)) LMURepairAndRefuelData.rainChance = (int)Sesstions["rainChance"];
                                 }
+
+                                loadSessionStaticInfoFromWS = false;
                             }
                         }
                         catch
@@ -645,22 +601,23 @@ namespace Redadeg.lmuDataPlugin
                         // Start New Datas 04-2025
                         try
                         {
-                            //await Task.Delay(10, ctsGetJSonDataThread.Token);                                       // buggy
-                            //JObject TireMagagementJSONdata = JObject.Parse(await FetchTireManagementJSONdata());    // buggy
-                            //await Task.Delay(10, ctsGetJSonDataThread.Token);                                       // buggy
-                            //JObject RepairAndRefuelJSONdata = JObject.Parse(await FetchRepairAndRefuelJSONdata());  // buggy
-                            await Task.Delay(10, ctsGetJSonDataThread.Token);
+                            // call LMMU Webservice and wait to calm down the api throttle and fix Menu Flickering
+                            JObject TireMagagementJSONdata = JObject.Parse(await FetchTireManagementJSONdata());    // busy request, need waiting
+                            await Task.Delay(ButtonBindSettings.DataUpdateThreadTimeout, ctsGetJSonDataThread.Token);
+
+                            JObject RepairAndRefuelJSONdata = JObject.Parse(await FetchRepairAndRefuelJSONdata());  // busy request, need waiting
+                            await Task.Delay(ButtonBindSettings.DataUpdateThreadTimeout, ctsGetJSonDataThread.Token);
+
                             JObject GameStateJSONdata = JObject.Parse(await FetchGetGameStateJSONdata());
-                            await Task.Delay(10, ctsGetJSonDataThread.Token);
+                            await Task.Delay(ButtonBindSettings.DataUpdateThreadTimeout, ctsGetJSonDataThread.Token);
+
                             JObject RaceHistoryJSONdata = JObject.Parse(await FetchRaceHistoryJSONdata());
-                            //await Task.Delay(10, ctsGetJSonDataThread.Token);                                       // buggy
-                            //JArray pitMenuJSONData = JArray.Parse(await FetchPitMenuJSONdata());                    // buggy
-                            await Task.Delay(10, ctsGetJSonDataThread.Token);
-                            JObject InfoForEventJSONdata = JObject.Parse(await FetchInfoForEventJSONdata());
+                            await Task.Delay(ButtonBindSettings.DataUpdateThreadTimeout, ctsGetJSonDataThread.Token);
 
-                            /*JObject tireInventory = JObject.Parse(TireMagagementJSONdata["tireInventory"].ToString());
-                            JObject scheduledSessions = JObject.Parse(InfoForEventJSONdata.ToString());
+                            JArray pitMenuJSONData = JArray.Parse(await FetchPitMenuJSONdata());                    // busy request, need waiting
+                            // Not need to wait here, it's the last call and we wait in the loop
 
+                            JObject tireInventory = JObject.Parse(TireMagagementJSONdata["tireInventory"].ToString());
 
                             if (pitStopUpdatePause == -1)
                             {
@@ -858,11 +815,6 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.rainIntensity = (float)Math.Round((float)currentWeather["rainIntensity"] * 100, 2);
                             LMURepairAndRefuelData.raining = (float)Math.Round((float)currentWeather["raining"] * 100, 2);
 
-                            foreach (JObject Sesstions in scheduledSessions["scheduledSessions"])
-                            {
-                                if (Sesstions["name"].ToString().ToUpper().Equals(LMURepairAndRefuelData.SessionTypeName)) LMURepairAndRefuelData.rainChance = (int)Sesstions["rainChance"];
-                            }                                
-
                             // End Actual Weather Infos
 
                             // Start Track Condition                                
@@ -941,7 +893,6 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.energyPerLast5ClearLap = ClearEnergyConsuptions.Count() > 0 ? (float)Math.Round(ClearEnergyConsuptions.Average(), 2) : 0;
                             LMURepairAndRefuelData.ComputedFuelRatio_Last5Lap = FuelRatioAvg.Count() > 0 ? (float)Math.Round(FuelRatioAvg.Average(), 2) : 0;
                             // End Virtual Energy management
-                            */
 
                         }
                         catch (Exception ex)
@@ -981,7 +932,7 @@ namespace Redadeg.lmuDataPlugin
                             this.extendedBuffer.Connect();
                             this.rulesBuffer.Connect();
                             
-                            this.lmu_extended_connected = true; 
+                            this.lmu_extended_connected = true;
                         }
                         catch (Exception)
                         {
@@ -993,9 +944,9 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.mPendingPenaltyType1 = 0;
                             LMURepairAndRefuelData.mPendingPenaltyType2 = 0;
                             LMURepairAndRefuelData.mPendingPenaltyType3 = 0;
-                            LMURepairAndRefuelData.mChangedParamValue = "";
-                            LMURepairAndRefuelData.mChangedParamType = -1; // TODO VMA force to -1 tu use webservice data when extended is not ready
-                            /*LMURepairAndRefuelData.mpBrakeMigration = 0;
+                            LMURepairAndRefuelData.mChangedParamValue = "None";
+                            LMURepairAndRefuelData.mChangedParamType = 0;
+                            LMURepairAndRefuelData.mpBrakeMigration = 0;
                             LMURepairAndRefuelData.mpBrakeMigrationMax = 0;
                             LMURepairAndRefuelData.mpTractionControl = 0;
                             LMURepairAndRefuelData.mpMotorMap = "None";
@@ -1009,7 +960,7 @@ namespace Redadeg.lmuDataPlugin
                             LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = "N/A";
                             LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = "N/A";
                             LMURepairAndRefuelData.VM_FRONT_ANTISWAY = "N/A";
-                            LMURepairAndRefuelData.VM_REAR_ANTISWAY = "N/A";*/
+                            LMURepairAndRefuelData.VM_REAR_ANTISWAY = "N/A";
                             this.lmu_extended_connected = false;
                            // Logging.Current.Info("Extended data update service not connectded.");
                         }
@@ -1031,22 +982,95 @@ namespace Redadeg.lmuDataPlugin
                         LMURepairAndRefuelData.mpTractionControl = lmu_extended.mpTractionControl;
                         LMURepairAndRefuelData.mpMotorMap = GetStringFromBytes(lmu_extended.mpMotorMap);
                         string mChangedParamValue = GetStringFromBytes(lmu_extended.mChangedParamValue).Trim();
+                        // if data is 0, we act as if we don't received data
                         if (lmu_extended.mChangedParamType == 0 && mChangedParamValue.Equals(""))
                         {
                             LMURepairAndRefuelData.mChangedParamType = -1;
                             LMURepairAndRefuelData.mChangedParamValue = "";
                         }
-                        else 
+                        // if we detect a compatible data change in MemoryShared we update the property and flag we need report change
+                        else if (lmu_extended.mChangedParamType != -1
+                                && (LMURepairAndRefuelData.mChangedParamType != lmu_extended.mChangedParamType ||  //and the value really change since last time
+                                    LMURepairAndRefuelData.mChangedParamValue != mChangedParamValue)
+                                )
                         {
+                            // if data read from MemoryShared is different, we will refresh lmu data
+                            NeedUpdateData = true;
                             LMURepairAndRefuelData.mChangedParamType = lmu_extended.mChangedParamType;
                             LMURepairAndRefuelData.mChangedParamValue = mChangedParamValue;
+
+                            switch (LMURepairAndRefuelData.mChangedParamType)
+                            {
+                                case 3:
+                                    LMURepairAndRefuelData.VM_ANTILOCKBRAKESYSTEMMAP = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 10:
+                                    LMURepairAndRefuelData.VM_BRAKE_BALANCE = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 15:
+                                    LMURepairAndRefuelData.VM_BRAKE_MIGRATION = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 9:
+                                    if (LMURepairAndRefuelData.mChangedParamValue.Contains("kW") || LMURepairAndRefuelData.mChangedParamValue.Contains("Off") || LMURepairAndRefuelData.mChangedParamValue.Contains("Safety-car") || LMURepairAndRefuelData.mChangedParamValue.Contains("Race"))
+                                    {
+                                        if (LMURepairAndRefuelData.CarClass.Contains("Hyper"))
+                                        {
+                                            LMURepairAndRefuelData.VM_ELECTRIC_MOTOR_MAP = LMURepairAndRefuelData.mChangedParamValue;
+                                        }
+                                        else
+                                        {
+                                            LMURepairAndRefuelData.VM_ENGINE_MIXTURE = LMURepairAndRefuelData.mChangedParamValue;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse 2024") || LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse"))
+                                        { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["F" + LMURepairAndRefuelData.mChangedParamValue]; }
+                                        else if (LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies 2024") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport 2024") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing 2024") || LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing"))
+                                        { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["P" + LMURepairAndRefuelData.mChangedParamValue]; }
+                                        else if (LMURepairAndRefuelData.CarModel.Equals("Glickenhaus Racing"))
+                                        { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR["G" + LMURepairAndRefuelData.mChangedParamValue]; }
+                                        else
+                                        { LMURepairAndRefuelData.VM_FRONT_ANTISWAY = frontABR[LMURepairAndRefuelData.mChangedParamValue]; }
+                                    }
+                                    break;
+                                case 11:
+                                    LMURepairAndRefuelData.VM_REGEN_LEVEL = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 7:
+                                    LMURepairAndRefuelData.VM_TRACTIONCONTROLSLIPANGLEMAP = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 6:
+                                    LMURepairAndRefuelData.VM_TRACTIONCONTROLPOWERCUTMAP = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 2:
+                                    LMURepairAndRefuelData.VM_TRACTIONCONTROLMAP = LMURepairAndRefuelData.mChangedParamValue;
+                                    break;
+                                case 8:
+                                    if (LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse 2024") || LMURepairAndRefuelData.CarModel.Equals("Ferrari AF Corse"))
+                                    { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["F" + LMURepairAndRefuelData.mChangedParamValue]; }
+                                    else if (LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies 2024") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport 2024") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing 2024") || LMURepairAndRefuelData.CarModel.Equals("Peugeot TotalEnergies") || LMURepairAndRefuelData.CarModel.Equals("Porsche Penske Motorsport") || LMURepairAndRefuelData.CarModel.Equals("Toyota Gazoo Racing"))
+                                    { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["P" + LMURepairAndRefuelData.mChangedParamValue]; }
+                                    else if (LMURepairAndRefuelData.CarModel.Equals("Glickenhaus Racing"))
+                                    { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR["G" + LMURepairAndRefuelData.mChangedParamValue]; }
+                                    else
+                                    { LMURepairAndRefuelData.VM_REAR_ANTISWAY = rearABR[LMURepairAndRefuelData.mChangedParamValue]; }
+
+                                    break;
+                                default:
+                                    // code block
+                                    break;
+                            }
                         }
 
-                       // Logging.Current.Info(("Extended data update service connectded. " +  lmu_extended.mCutsPoints.ToString() + " Penalty laps" + lmu_extended.mPenaltyLeftLaps).ToString());
+                            // Logging.Current.Info(("Extended data update service connectded. " +  lmu_extended.mCutsPoints.ToString() + " Penalty laps" + lmu_extended.mPenaltyLeftLaps).ToString());
                     }
+                    // if we are connected we wait a short time before read again the memory
                     if (this.lmu_extended_connected) {
                         await Task.Delay(ButtonBindSettings.GetMemoryDataThreadTimeout, cts.Token);
-                    } else
+                    } 
+                    // if we are not connected we wait 5 secondes before attempted a new connection 
+                    else
                     {
                         await Task.Delay(5000, cts.Token);
                     }
